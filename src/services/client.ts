@@ -83,9 +83,15 @@ export class ClientService {
         }
     }
 
-    async getAllClient():Promise<clientSelect[]> {
+    async getAllClient(n?:number,reverse?:boolean):Promise<clientSelect[]> {
        try {
             const clients: clientSelect[] = await this.db.select().from(Client)
+            if (reverse){
+                clients.sort((a,b)=> (new Date(b.created_at).getTime())- (new Date(a.created_at)).getTime())
+            }
+            if (n && n>0){
+                return clients.slice(0,n)
+            }
             return clients
        } catch (error:any) {
             throw new Error(`Unable to get clients, due to: ${error}`)

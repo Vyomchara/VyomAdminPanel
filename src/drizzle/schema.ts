@@ -1,4 +1,4 @@
-import {text, pgTable, serial, uuid, integer} from "drizzle-orm/pg-core";
+import {text, pgTable, serial, uuid, integer, timestamp} from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema, createUpdateSchema, CreateUpdateSchema} from "drizzle-zod"
 import {z} from "zod"
 //import {v4 as uuid} from "uuid"
@@ -8,7 +8,8 @@ export const Client = pgTable("client", {
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
     address: text('address').notNull(),
-    vm_ip: text('vm_ip')
+    created_at: timestamp('created_at').notNull().defaultNow(),
+    vm_ip: text('vm_ip'),
 })
 
 export const Drone = pgTable("drone",{
