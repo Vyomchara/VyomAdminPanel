@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { ClientService } from "@/services/client";
 import { clientCreateAction } from "@/app/action";
+import { toast } from "sonner";
 
 interface AddClientDialogProps {
   children: React.ReactNode;
@@ -34,15 +35,18 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
       const result = await clientCreateAction(formData);
       
       if (!result.success) {
-        throw new Error(result.message);
+        toast.error(result.message);
+        return;
       }
 
+      toast.success(`Client ${formData.name} added successfully`);
       setOpen(false);
       // Reset form
       setFormData({ name: "", email: "", address: "" });
       // Refresh data
       window.location.reload();
     } catch (error) {
+      toast.error("Failed to add client");
       console.error("Error creating client:", error);
     }
   };

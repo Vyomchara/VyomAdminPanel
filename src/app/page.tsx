@@ -1,17 +1,19 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { AddClientDialog } from "@/components/dashboard/addClient";
-import Component1 from "@/components/ui/originui/comp-485";
 import { clientSelect } from "@/drizzle/schema";
 import { ClientService } from "@/services/client";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
+import { Table } from "@/components/dashboard/Table"; // Update import to use named import
 
-// Mark as async server component
+const serviceMethods = new ClientService();
+
 async function getData() {
-  const serviceMethods = new ClientService();
-  return await serviceMethods.getAllClient(20, true);
+  // Remove the limit parameter (20) to get all clients
+  // Keep reverse=true to maintain newest-first ordering
+  return await serviceMethods.getAllClient(undefined, true);
 }
 
 export default async function Home() {
@@ -27,7 +29,7 @@ export default async function Home() {
 
       {/* Main Content: Clients Table */}
       <section>
-        <Component1 clients={clients} />
+        <Table clients={clients} />
       </section>
       <div className="absolute bottom-4 right-4">
       </div>
