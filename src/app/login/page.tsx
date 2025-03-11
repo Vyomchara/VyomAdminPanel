@@ -1,13 +1,14 @@
-import {login} from "@/app/login/action"
-
-import {Card,CardContent,CardDescription,CardFooter,CardHeader,CardTitle} from "@/components/ui/card"
-import {Label} from "@/components/ui/label"
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { login } from "@/app/login/action";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button"; // Import the reusable component
+import { MailIcon, LockIcon } from "lucide-react";
+import InputWithIcon from "@/components/ui/modifiedui/InputWithIcon"; // Import the reusable component
+import { ThemeProvider } from "@/components/ui/theme-provider";
 
 export default function LoginPage() {
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-50">
+    <div className="flex h-screen items-center justify-center bg-gradient-to-b  ">
+      
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Login</CardTitle>
@@ -16,29 +17,11 @@ export default function LoginPage() {
         <CardContent>
           <form action={login}>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  className="mt-1"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  className="mt-1"
-                  required
-                />
-              </div>
+              {/* Reusable Input Component */}
+              <InputWithIcon id="email" label="Email" type="email" placeholder="Enter your email" Icon={MailIcon} />
+              <InputWithIcon id="password" label="Password" type="password" placeholder="Enter your password" Icon={LockIcon} />
             </div>
+
             <CardFooter className="px-0 mt-4">
               <Button type="submit" className="w-full">
                 Log In
@@ -50,5 +33,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-
