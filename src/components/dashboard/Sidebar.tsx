@@ -87,19 +87,19 @@ export function Sidebar({ className, clientName, onNavigate, currentView }: Side
             Configuration
           </Button>
           
-          {/* Mission button with custom focus styling */}
+          {/* Missions button with custom focus styling */}
           <Button 
             variant="ghost" 
             className={cn(
               "w-full justify-start h-12 text-base transition-colors",
-              currentView === 'mission' as View 
+              currentView === 'missions' 
                 ? [focusBgClass, focusTextClass] 
                 : [hoverBgClass, hoverTextClass]
             )}
-            onClick={() => onNavigate('mission' as View)}
+            onClick={() => onNavigate('missions')}
           >
             <Target className="mr-3 h-5 w-5" />
-            Mission
+            Missions
           </Button>
           
           {/* Drones button with updated hover styling*/}
