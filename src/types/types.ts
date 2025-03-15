@@ -1,7 +1,7 @@
 // This file contains type definitions related to clients and their operations
 
 // Types for client views
-export type View = 'summary' | 'config' | 'mission'
+export type View = 'summary' | 'config' | 'missions' // Fixed mission -> missions to match your code
 
 // Client data structure from API/database
 export interface ClientData {
@@ -56,19 +56,4 @@ export interface ClientDetailsResponse {
   data?: ClientData;
   error?: string;
 }
-
-// Local storage helpers
-export const getStorageItem = (key: string) => {
-  if (typeof window !== 'undefined') {
-    const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : null;
-  }
-  return null;
-};
-
-export const setStorageItem = (key: string, value: any) => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(key, JSON.stringify(value));
-  }
-};
 

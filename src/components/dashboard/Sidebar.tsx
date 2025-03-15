@@ -92,11 +92,11 @@ export function Sidebar({ className, clientName, onNavigate, currentView }: Side
             variant="ghost" 
             className={cn(
               "w-full justify-start h-12 text-base transition-colors",
-              currentView === 'mission' 
+              currentView === 'mission' as View 
                 ? [focusBgClass, focusTextClass] 
                 : [hoverBgClass, hoverTextClass]
             )}
-            onClick={() => onNavigate('mission')}
+            onClick={() => onNavigate('mission' as View)}
           >
             <Target className="mr-3 h-5 w-5" />
             Mission
