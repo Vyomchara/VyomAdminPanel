@@ -19,20 +19,14 @@ import { Sidebar as DashboardSidebar } from "@/components/dashboard/Sidebar"
 import { SummaryDashboard } from "@/components/dashboard/SummaryDashboard"
 import { Configuration } from "@/components/clientDashboard/Configuration"
 import { DroneTable } from "@/components/clientDashboard/DroneTable"
-
-export type View = 'summary' | 'config' | 'mission'
-
-interface PageProps {}
-
-interface ClientData {
-  id: string;
-  name: string;
-  email: string;
-  address: string;
-  created_at: Date;
-  vm_ip: string | null;
-  vm_password: string | null;
-}
+// Import types from the new file
+import { 
+  View, 
+  ClientData, 
+  PageProps, 
+  MissionUploaderProps, 
+  VMSettingsUpdateResponse 
+} from "@/types/types"
 
 // Helper function to safely access localStorage
 const getStorageItem = (key: string) => {
@@ -55,7 +49,7 @@ export default function ClientPage() {
   const id = searchParams.get('id')
   
   const [currentView, setCurrentView] = useState<View>('summary')
-  const [client, setClient] = useState<any>(null)
+  const [client, setClient] = useState<ClientData | null>(null)
   const [droneAssignments, setDroneAssignments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [vmPromptShown, setVmPromptShown] = useState(false) // Track if we've shown VM prompt
@@ -66,59 +60,61 @@ export default function ClientPage() {
     async function loadData() {
       try {
         if (!id) {
-          router.push('/')
-          return
+          router.push('/');
+          return;
         }
-
+    
+        // Now TypeScript knows id is a string (not null)
+        
         // Check if we have cached data
-        const cachedClient = getStorageItem(`client_${id}`)
-        const cachedTime = getStorageItem(`client_${id}_time`)
-        const now = Date.now()
+        const cachedClient = getStorageItem(`client_${id}`);
+        const cachedTime = getStorageItem(`client_${id}_time`);
+        const now = Date.now();
         
         // Use cached data if it's less than 5 minutes old
         if (cachedClient && cachedTime && (now - cachedTime) < 5 * 60 * 1000) {
-          setClient(cachedClient)
+          setClient(cachedClient);
           
           // Still check if VM IP is not configured and navigate only on first load
           if (!cachedClient.vm_ip && !vmPromptShown) {
-            setCurrentView('config')
-            setVmPromptShown(true)
+            setCurrentView('config');
+            setVmPromptShown(true);
           }
           
-          // Load drone assignments later
-          loadDroneAssignments(id)
-          setLoading(false)
-          return
+          // Load drone assignments later - id is guaranteed to be string here
+          await loadDroneAssignments(id);
+          setLoading(false);
+          return;
         }
-
+    
         // If no valid cache, fetch from server
-        const result = await getClientDetails(id)
+        const result = await getClientDetails(id);
         if (!result.success || !result.data) {
-          router.push('/')
-          return
+          router.push('/');
+          return;
         }
-
+    
         // Save to cache
-        setStorageItem(`client_${id}`, result.data)
-        setStorageItem(`client_${id}_time`, Date.now())
+        setStorageItem(`client_${id}`, result.data);
+        setStorageItem(`client_${id}_time`, Date.now());
         
-        setClient(result.data)
+        setClient(result.data);
         
         // Check if VM IP is not set and automatically navigate to config page
         // But only do this once per session
         if (!result.data.vm_ip && !vmPromptShown) {
-          setCurrentView('config')
-          setVmPromptShown(true)
-          toast.info("Please configure VM IP address")
+          setCurrentView('config');
+          setVmPromptShown(true);
+          toast.info("Please configure VM IP address");
         }
         
-        await loadDroneAssignments(id)
+        await loadDroneAssignments(id);
         
       } catch (err) {
-        console.error('Error:', err)
-        router.push('/')
+        console.error('Error:', err);
+        router.push('/');
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
     
@@ -135,7 +131,7 @@ export default function ClientPage() {
     loadData()
   }, [id, router, vmPromptShown])
   
-  // Function to update client data after VM IP is set - make this return void
+  // Function to update client data after VM IP is set
   const updateClientData = async (): Promise<void> => {
     if (!id) return
     
@@ -148,13 +144,10 @@ export default function ClientPage() {
         // Update cache
         setStorageItem(`client_${id}`, result.data)
         setStorageItem(`client_${id}_time`, Date.now())
-        
-        // Don't return any data, just update state
       }
     } catch (error) {
       console.error('Error updating client data:', error)
     }
-    // No return value (implicitly returns undefined which is compatible with void)
   }
   
   if (loading) {
@@ -173,28 +166,21 @@ export default function ClientPage() {
         {currentView === 'summary' ? (
           <SummaryDashboard client={client} droneAssignments={droneAssignments} />
         ) : currentView === 'config' ? (
-          <Configuration
-            clientId={client?.id} 
-            vm_ip={client?.vm_ip}
-            onUpdate={updateClientData} // Pass update function to Configuration
+          <Configuration  
+            clientId={client?.id || ''} // Provide empty string as fallback
+            vm_ip={client?.vm_ip||''}
+            onUpdate={updateClientData}
           />
         ) : (
-          <MissionUploaderComponent clientId={client?.id} />
+          <MissionUploaderComponent clientId={client?.id || ''} /> // Provide empty string as fallback
         )}
       </div>
     </div>
   )
 }
 
-interface SidebarProps {
-  className?: string;
-  clientName: string;
-  onNavigate: (view: View) => void;
-  currentView: View;
-}
-
 // Add a new MissionUploader component
-function MissionUploader({ clientId }: { clientId: string }) {
+function MissionUploader({ clientId }: MissionUploaderProps) {
   const [files, setFiles] = useState<File[] | null>(null)
   const [isUploading, setIsUploading] = useState(false)   
   
@@ -291,10 +277,11 @@ function MissionUploader({ clientId }: { clientId: string }) {
   )
 }
 
-function AppSidebar() {
-  // Your sidebar component code
-}
-async function updateClientVMSettings(clientId: string, vmIp: string, vmPassword: string | null): Promise<{ success: boolean, error?: string }> {
+async function updateClientVMSettings(
+  clientId: string, 
+  vmIp: string, 
+  vmPassword: string | null
+): Promise<VMSettingsUpdateResponse> {
   try {
     // TODO: Implement the actual API call to update VM settings
     // For now, simulate a successful update

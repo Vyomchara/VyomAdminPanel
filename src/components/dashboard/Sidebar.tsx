@@ -12,7 +12,7 @@ import {
   Target,
   ArrowLeft
 } from "lucide-react"
-import { type View } from "@/app/client/page"
+import { View } from "@/types/types"
 import Image from "next/image"
 import { useTheme } from "next-themes"
 import { useState } from "react"
