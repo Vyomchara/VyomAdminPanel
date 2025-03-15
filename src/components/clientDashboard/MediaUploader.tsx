@@ -7,14 +7,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { UploadCloud, CheckCircle2, Trash2, FileText, Image as ImageIcon, File } from "lucide-react";
-import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseAnonKey ? 
-  createClient(supabaseUrl, supabaseAnonKey) : 
-  null;
+// Import from the centralized supabase utility file
+import { uploadFileToSupabase, uploadFilesToSupabase } from "@/lib/supabase";
 
 // Context for sharing state between components
 type MediaUploaderContextType = {
@@ -49,49 +44,6 @@ type MediaUploaderProps = {
   children: React.ReactNode;
   imageOnly?: boolean;
 };
-
-/**
- * Upload a file to Supabase Storage
- */
-async function uploadFileToSupabase(
-  file: File,
-  bucket: string,
-  path?: string,
-  onProgress?: (progress: number) => void
-): Promise<{ url: string | null; error: Error | null }> {
-  if (!supabase) {
-    return { url: null, error: new Error('Supabase client not initialized') };
-  }
-
-  try {
-    // Create a unique file name to prevent collisions
-    const fileExt = file.name.split('.').pop() || 'file';
-    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-    const filePath = path ? `${path}/${fileName}` : fileName;
-
-    // Upload the file to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) {
-      throw error;
-    }
-
-    // Get the public URL for the file
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(data.path);
-
-    return { url: publicUrl, error: null };
-  } catch (error) {
-    console.error('Error uploading file to Supabase:', error);
-    return { url: null, error: error as Error };
-  }
-}
 
 export const MediaUploader = forwardRef<
   HTMLDivElement,
@@ -214,26 +166,27 @@ export const MediaUploader = forwardRef<
       }
       
       setIsUploading(true);
-      const urls: string[] = [];
-      const errors: Error[] = [];
       
       try {
-        for (const file of value) {
-          const { url, error } = await uploadFileToSupabase(file, bucket, path);
-          
-          if (error) {
-            errors.push(error);
-            toast.error(`Failed to upload ${file.name}`);
-          } else if (url) {
-            urls.push(url);
-          }
+        // Use the centralized uploadFilesToSupabase utility
+        const { urls, errors } = await uploadFilesToSupabase(value, bucket, path);
+        
+        // Handle errors if any
+        if (errors.length > 0) {
+          errors.forEach(error => {
+            toast.error(`Upload error: ${error.message}`);
+          });
         }
         
+        // Handle successful uploads
         if (urls.length > 0) {
           toast.success(`Successfully uploaded ${urls.length} file${urls.length > 1 ? 's' : ''}`);
           onUploadComplete?.(urls);
           // Clear files after upload
           onValueChange(null);
+        } else if (errors.length === 0) {
+          // This is a fallback in case no files were uploaded but no errors occurred
+          toast.error("No files were uploaded");
         }
       } catch (error) {
         toast.error("An error occurred during upload");

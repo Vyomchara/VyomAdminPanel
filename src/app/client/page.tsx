@@ -19,14 +19,15 @@ import { Sidebar as DashboardSidebar } from "@/components/dashboard/Sidebar"
 import { SummaryDashboard } from "@/components/dashboard/SummaryDashboard"
 import { Configuration } from "@/components/clientDashboard/Configuration"
 import { DroneTable } from "@/components/clientDashboard/DroneTable"
-// Import types from the new file
+// Import types from the types file
 import { 
   View, 
   ClientData, 
   PageProps, 
-  MissionUploaderProps, 
   VMSettingsUpdateResponse 
 } from "@/types/types"
+
+// Remove MissionUploaderProps from import since we don't need it anymore
 
 // Helper function to safely access localStorage
 const getStorageItem = (key: string) => {
@@ -63,8 +64,6 @@ export default function ClientPage() {
           router.push('/');
           return;
         }
-    
-        // Now TypeScript knows id is a string (not null)
         
         // Check if we have cached data
         const cachedClient = getStorageItem(`client_${id}`);
@@ -179,104 +178,7 @@ export default function ClientPage() {
   )
 }
 
-// Add a new MissionUploader component
-function MissionUploader({ clientId }: MissionUploaderProps) {
-  const [files, setFiles] = useState<File[] | null>(null)
-  const [isUploading, setIsUploading] = useState(false)   
-  
-  const handleFileUpload = async (uploadedFiles: File[]) => {
-    if (!uploadedFiles || uploadedFiles.length === 0) return;
-    
-    setIsUploading(true);
-    
-    try {
-      // Simulated upload - replace with your actual upload logic
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      toast.success("Mission files uploaded successfully")
-      setFiles(null) // Clear files after successful upload
-    } catch (error) {
-      console.error("Upload error:", error)
-      toast.error("Failed to upload mission files")
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">Mission Uploader</h2>
-        {isUploading && (
-          <div className="flex items-center">
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            <span>Uploading...</span>
-          </div>
-        )}
-      </div>
-      
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold mb-4">Upload Mission Files</h3>
-        <div className="space-y-4">
-          <FileUploader
-            value={files}
-            onValueChange={(files) => {
-              setFiles(files);
-              if (files && files.length > 0) {
-                handleFileUpload(files);
-              }
-            }}
-            dropzoneOptions={{
-              maxFiles: 5,
-              maxSize: 10 * 1024 * 1024, // 10MB
-              accept: {
-                'application/json': ['.json'],
-                'application/xml': ['.xml'],
-                'text/plain': ['.txt'],
-                'application/zip': ['.zip'],
-              }
-            }}
-          >
-            <FileInput>
-              <div className="flex flex-col items-center justify-center p-10 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-900">
-                <svg
-                  className="w-10 h-10 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  ></path>
-                </svg>
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  Drag and drop mission files, or click to select
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  JSON, XML, TXT, ZIP (max 10MB)
-                </p>
-              </div>
-            </FileInput>
-            
-            {files && files.length > 0 && (
-              <FileUploaderContent className="mt-4">
-                {files.map((file, i) => (
-                  <FileUploaderItem key={i} index={i}>
-                    {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                  </FileUploaderItem>
-                ))}
-              </FileUploaderContent>
-            )}
-          </FileUploader>
-        </div>
-      </Card>
-    </div>
-  )
-}
-
+// Keep the VM settings update function
 async function updateClientVMSettings(
   clientId: string, 
   vmIp: string, 

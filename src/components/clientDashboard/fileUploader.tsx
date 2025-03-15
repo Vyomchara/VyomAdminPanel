@@ -1,20 +1,14 @@
 "use client";
 
-import { useState, useCallback, forwardRef, createContext, useContext } from "react";
+import { useState, useCallback, forwardRef, createContext, useContext, useMemo, useEffect } from "react";
 import { useDropzone, DropzoneOptions, FileRejection } from "react-dropzone";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { UploadCloud, CheckCircle2, Trash2, FileText } from "lucide-react";
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseAnonKey ? 
-  createClient(supabaseUrl, supabaseAnonKey) : 
-  null;
+import { UploadCloud, CheckCircle2, Trash2, FileText, Image as ImageIcon, File } from "lucide-react";
+// Import Supabase utility functions from the shared library
+import { uploadFileToSupabase, uploadFilesToSupabase } from "@/lib/supabase";
 
 // Context for sharing state between components
 type FileUploaderContextType = {
@@ -25,6 +19,7 @@ type FileUploaderContextType = {
   getInputProps: any;
   isDragActive: boolean;
   isUploading: boolean;
+  previewUrls: Record<number, string>;
 };
 
 const FileUploaderContext = createContext<FileUploaderContextType | null>(null);
@@ -46,50 +41,8 @@ type FileUploaderProps = {
   onUploadComplete?: (urls: string[]) => void;
   buttonText?: string;
   children: React.ReactNode;
+  imageOnly?: boolean;
 };
-
-/**
- * Upload a file to Supabase Storage
- */
-async function uploadFileToSupabase(
-  file: File,
-  bucket: string,
-  path?: string,
-  onProgress?: (progress: number) => void
-): Promise<{ url: string | null; error: Error | null }> {
-  if (!supabase) {
-    return { url: null, error: new Error('Supabase client not initialized') };
-  }
-
-  try {
-    // Create a unique file name to prevent collisions
-    const fileExt = file.name.split('.').pop() || 'file';
-    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-    const filePath = path ? `${path}/${fileName}` : fileName;
-
-    // Upload the file to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) {
-      throw error;
-    }
-
-    // Get the public URL for the file
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(data.path);
-
-    return { url: publicUrl, error: null };
-  } catch (error) {
-    console.error('Error uploading file to Supabase:', error);
-    return { url: null, error: error as Error };
-  }
-}
 
 export const FileUploader = forwardRef<
   HTMLDivElement,
@@ -105,18 +58,51 @@ export const FileUploader = forwardRef<
       path = '',
       onUploadComplete,
       buttonText = "Upload Files",
+      imageOnly = false,
       children,
       ...props
     },
     ref,
   ) => {
     const [isUploading, setIsUploading] = useState(false);
+    
+    // Generate preview URLs for images
+    const [previewUrls, setPreviewUrls] = useState<Record<number, string>>({});
+    
+    // Update preview URLs when files change
+    useEffect(() => {
+      const urls: Record<number, string> = {};
+      
+      if (value) {
+        value.forEach((file, index) => {
+          if (file.type.startsWith('image/')) {
+            urls[index] = URL.createObjectURL(file);
+          }
+        });
+      }
+      
+      setPreviewUrls(urls);
+      
+      // Clean up object URLs when component unmounts or files change
+      return () => {
+        Object.values(urls).forEach(URL.revokeObjectURL);
+      };
+    }, [value]);
 
     const onDrop = useCallback(
       (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+        // Filter out non-image files if imageOnly is true
+        const filteredFiles = imageOnly 
+          ? acceptedFiles.filter(file => file.type.startsWith('image/'))
+          : acceptedFiles;
+          
+        if (imageOnly && filteredFiles.length < acceptedFiles.length) {
+          toast.error("Only image files are allowed");
+        }
+        
         // Use existing files or initialize to empty array
         const currentFiles = value || [];
-        const newFiles = [...currentFiles, ...acceptedFiles];
+        const newFiles = [...currentFiles, ...filteredFiles];
         
         // Check max files limitation
         const { maxFiles = Infinity } = dropzoneOptions;
@@ -143,16 +129,29 @@ export const FileUploader = forwardRef<
           }
         }
       },
-      [value, onValueChange, dropzoneOptions],
+      [value, onValueChange, dropzoneOptions, imageOnly],
     );
 
+    // Setup dropzone options
+    const finalDropzoneOptions = useMemo(() => {
+      let options = {...dropzoneOptions};
+      
+      // If imageOnly is true, restrict accept to only image types
+      if (imageOnly) {
+        options.accept = {'image/*': ['.jpg', '.jpeg', '.png', '.gif', '.webp']};
+      }
+      
+      return options;
+    }, [dropzoneOptions, imageOnly]);
+
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
-      ...dropzoneOptions,
+      ...finalDropzoneOptions,
       onDrop,
     });
 
     const removeFile = (index: number) => {
       if (!value) return;
+      
       const newFiles = [...value];
       newFiles.splice(index, 1);
       onValueChange(newFiles.length ? newFiles : null);
@@ -166,26 +165,28 @@ export const FileUploader = forwardRef<
       }
       
       setIsUploading(true);
-      const urls: string[] = [];
-      const errors: Error[] = [];
       
       try {
-        for (const file of value) {
-          const { url, error } = await uploadFileToSupabase(file, bucket, path);
-          
-          if (error) {
-            errors.push(error);
-            toast.error(`Failed to upload ${file.name}`);
-          } else if (url) {
-            urls.push(url);
-          }
+        // Use uploadFilesToSupabase utility function
+        const { urls, errors } = await uploadFilesToSupabase(value, bucket, path);
+        
+        // Show error notifications for any failed uploads
+        if (errors.length > 0) {
+          errors.forEach(error => {
+            toast.error(`Upload error: ${error.message}`);
+          });
         }
         
+        // Show success notification and call the callback if provided
         if (urls.length > 0) {
           toast.success(`Successfully uploaded ${urls.length} file${urls.length > 1 ? 's' : ''}`);
           onUploadComplete?.(urls);
+          
           // Clear files after upload
           onValueChange(null);
+        } else if (errors.length === 0) {
+          // This is a fallback in case no files were uploaded but no errors occurred
+          toast.error("No files were uploaded");
         }
       } catch (error) {
         toast.error("An error occurred during upload");
@@ -204,7 +205,8 @@ export const FileUploader = forwardRef<
           getRootProps, 
           getInputProps, 
           isDragActive, 
-          isUploading 
+          isUploading,
+          previewUrls
         }}
       >
         <div 
@@ -251,7 +253,7 @@ export const FileInput = forwardRef<
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, children, ...props }, ref) => {
   const { getRootProps, getInputProps, isDragActive, files } = useFileUploader();
-  const { maxFiles = Infinity } = getRootProps().item?.dropzoneOptions || {};
+  const { maxFiles = Infinity } = getRootProps()?.item?.dropzoneOptions || {};
   const isMaxFilesReached = files && files.length >= maxFiles;
   
   return (
@@ -299,26 +301,64 @@ FileUploaderContent.displayName = "FileUploaderContent";
 // FileUploaderItem component
 interface FileUploaderItemProps {
   index: number;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  showPreview?: boolean;
 }
 
 export const FileUploaderItem = forwardRef<
   HTMLDivElement,
   FileUploaderItemProps & React.HTMLAttributes<HTMLDivElement>
->(({ className, index, children, ...props }, ref) => {
-  const { removeFile, isUploading } = useFileUploader();
+>(({ className, index, children, showPreview = true, ...props }, ref) => {
+  const { removeFile, isUploading, files, previewUrls } = useFileUploader();
+  
+  if (!files) return null;
+  
+  const file = files[index];
+  const isImage = file.type.startsWith('image/');
+  const previewUrl = isImage && showPreview ? previewUrls[index] : null;
   
   return (
     <div
       ref={ref}
       className={cn(
-        "flex items-center justify-between p-2 rounded-md border bg-background",
+        "flex items-center justify-between p-3 rounded-md border bg-background",
         className
       )}
       {...props}
     >
-      <div className="flex-1 truncate">
-        {children}
+      <div className="flex items-center gap-3">
+        {previewUrl ? (
+          <div className="w-10 h-10 rounded-md overflow-hidden flex-shrink-0">
+            <img 
+              src={previewUrl} 
+              alt={file.name} 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+            {isImage ? (
+              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <FileText className="h-5 w-5 text-muted-foreground" />
+            )}
+          </div>
+        )}
+        
+        <div className="flex-1 min-w-0">
+          {children ? (
+            children
+          ) : (
+            <div className="flex flex-col">
+              <span className="text-sm font-medium truncate">
+                {file.name}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {(file.size / 1024).toFixed(1)} KB
+              </span>
+            </div>
+          )}
+        </div>
       </div>
       
       <button
@@ -335,3 +375,9 @@ export const FileUploaderItem = forwardRef<
 });
 
 FileUploaderItem.displayName = "FileUploaderItem";
+
+// For backward compatibility - keep these exports
+export const MediaUploader = FileUploader;
+export const MediaDropzone = FileInput;
+export const MediaList = FileUploaderContent;
+export const MediaItem = FileUploaderItem;
