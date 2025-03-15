@@ -9,7 +9,8 @@ export const Client = pgTable("client", {
     email: text('email').notNull().unique(),
     address: text('address').notNull(),
     created_at: timestamp('created_at').notNull().defaultNow(),
-    vm_ip: text('vm_ip'),
+    vm_ip: text('vm_ip'), // Keep vm_ip
+    // Remove vm_password field
 })
 
 export const Drone = pgTable("drone",{
@@ -40,7 +41,8 @@ export const clientCreateSchema = createInsertSchema(Client,{
     name: z.string().nonempty(),
     email: z.string().nonempty().email(),
     address: z.string().nonempty().max(200),
-    vm_ip: z.string().ip({version:"v4"}).optional()
+    vm_ip: z.string().ip({version:"v4"}).optional(), // Keep vm_ip validation
+    // Remove vm_password validation
 })
 export const clientUpdateSchema = createUpdateSchema(Client)
 export const clientSelectSchema = createSelectSchema(Client)
@@ -60,3 +62,7 @@ export type droneAssignmentInsert = z.infer<typeof droneAssignmentUpdateSchema>
 export type payloadAssignmentSelect = z.infer<typeof payloadAssignmentSelectSchema>
 export type payloadAssignmentUpdate = z.infer<typeof payloadAssignmentUpdateSchema>
 export type payloadAssignmentInsert = z.infer<typeof payloadAssignmentInsertSchema>
+
+export type DroneSelect = typeof Drone.$inferSelect;
+export type PayloadSelect = typeof Payload.$inferSelect;
+export type ClientDroneAssignmentSelect = typeof ClientDroneAssignment.$inferSelect;

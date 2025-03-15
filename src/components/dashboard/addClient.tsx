@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { ClientService } from "@/services/client";
 import { clientCreateAction } from "@/app/action";
+
 import { toast } from "sonner";
 
 interface AddClientDialogProps {
@@ -23,6 +24,7 @@ interface AddClientDialogProps {
 
 export function AddClientDialog({ children }: AddClientDialogProps) {
   const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -32,6 +34,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      setIsLoading(true);
       const result = await clientCreateAction(formData);
       
       if (!result.success) {
@@ -48,6 +51,8 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
     } catch (error) {
       toast.error("Failed to add client");
       console.error("Error creating client:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -105,7 +110,16 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit">Add Client</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <span className="mr-2">Adding...</span>
+                  {/* <span className="h-4 w-4 animate-spin">◌</span> */}
+                </>
+              ) : (
+                'Add Client'
+              )}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -15,6 +15,20 @@
       "when": 1741176044361,
       "tag": "0001_damp_logan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1741794783150,
+      "tag": "0002_misty_lady_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1741796526925,
+      "tag": "0003_sad_patch",
+      "breakpoints": true
     }
   ]
 }
