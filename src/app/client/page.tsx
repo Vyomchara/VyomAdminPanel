@@ -7,7 +7,7 @@ import { View } from "@/types/types"
 import { Sidebar } from "@/components/dashboard/Sidebar"
 import { SummaryDashboard } from "@/components/dashboard/SummaryDashboard"
 import { Configuration } from "@/components/clientDashboard/Configuration"
-import { MissionUploader } from "@/components/dashboard/MissionUploader"
+import { MissionUploader } from "@/components/clientDashboard/MissionUploader"
 
 export default function ClientPage() {
   const searchParams = useSearchParams()
