@@ -43,10 +43,25 @@ export function MissionUploader({ clientId }: { clientId: string }) {
             toast.success(`Uploaded ${urls.length} mission files`);
             
             // Save URLs to database
-            const result = await saveFilesToClient(clientId, urls, 'mission');
+            let allSuccess = true;
+            for (const url of urls) {
+              const fileName = url.split('/').pop() || 'unknown';
+              const result = await saveFilesToClient({
+                clientId,
+                fileUrl: url,
+                fileType: 'mission',
+                fileName
+              });
+              
+              if (!result.success) {
+                toast.error(`Failed to save file record: ${result.error}`);
+                allSuccess = false;
+                break;
+              }
+            }
             
-            if (!result.success) {
-              toast.error(`Failed to save file records: ${result.error}`);
+            if (allSuccess) {
+              toast.success("All file records saved successfully");
             }
           }}
           buttonText="Upload Mission Files"

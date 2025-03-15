@@ -5,6 +5,11 @@ import { clientCreate, clientCreateSchema, ClientDroneAssignment, Drone, Payload
 import { eq, inArray } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/drizzle/db"
+import { CreateClient } from "@/lib/supabase/server"
+import { v4 as uuid } from "uuid"
+
+// Remove auth client - using middleware instead
+// const auth = CreateClient();
 
 const serviceMethods = new ClientService()
 
@@ -100,6 +105,10 @@ export async function updateClientVMIP(clientId: string, vmIp: string) {
  * Update client information
  */
 export async function updateClientAction(clientId: string, data: { name: string, email: string, address: string }) {
+  'use server';
+  
+  // Remove authentication check - handled by middleware
+  
   try {
     // Validate the input data (add more validation as needed)
     if (!data.name.trim()) {
@@ -148,32 +157,142 @@ export async function deleteClientAction(clientId: string) {
 /**
  * Save file URLs to database
  */
-export async function saveFilesToClient(
-  clientId: string, 
-  fileUrls: string[], 
-  fileType: 'mission' | 'image'
-) {
+export async function saveFilesToClient(data: {
+  clientId: string;
+  fileUrl: string;
+  fileType: 'mission' | 'image';
+  fileName: string;
+}) {
   try {
     // TODO: Implement database logic to save the file URLs
     // Example:
-    // const files = fileUrls.map(url => ({
-    //   client_id: clientId,
-    //   file_url: url,
-    //   file_type: fileType,
+    // const file = {
+    //   client_id: data.clientId,
+    //   file_url: data.fileUrl,
+    //   file_type: data.fileType,
+    //   file_name: data.fileName,
     //   created_at: new Date()
-    // }));
+    // };
     // 
-    // await db.insert(clientFiles).values(files);
+    // await db.insert(clientFiles).values(file);
     
     // Revalidate paths to update UI
-    revalidatePath(`/client?id=${clientId}`);
+    revalidatePath(`/client?id=${data.clientId}`);
     
     return { success: true };
   } catch (error) {
-    console.error("Error saving file URLs:", error);
+    console.error("Error saving file URL:", error);
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "Unknown error" 
+    };
+  }
+}
+
+/**
+ * Upload a file to storage
+ * Supports two use cases:
+ * 1. Client files: (formData, clientId, fileType)
+ * 2. Generic files: (formData, bucket, path)
+ */
+export async function uploadFileToServer(
+  formData: FormData,
+  bucketOrClientId: string,
+  fileTypeOrPath: string | 'mission' | 'image' = ''
+): Promise<{ success: boolean; url?: string; message?: string }> {
+  'use server';
+  
+  try {
+    // Get the file from FormData
+    const file = formData.get('file') as File;
+    if (!file) {
+      return { success: false, message: "No file provided" };
+    }
+    
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return { success: false, message: `File too large. Maximum size is 10MB` };
+    }
+    
+    // Create a server-side Supabase client
+    const supabase = await CreateClient();
+    
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${uuid()}.${fileExt}`;
+    
+    // Determine if this is a client file upload or generic bucket upload
+    const isClientUpload = fileTypeOrPath === 'mission' || fileTypeOrPath === 'image';
+    
+    let bucket: string;
+    let fullPath: string;
+    
+    if (isClientUpload) {
+      // Client file upload case
+      const clientId = bucketOrClientId;
+      const fileType = fileTypeOrPath;
+      
+      bucket = 'client-files';
+      fullPath = `clients/${clientId}/${fileType}s/${fileName}`;
+      
+      // Validate file type for client uploads
+      const allowedTypes = fileType === 'mission' 
+        ? ['application/json', 'application/x-yaml']
+        : ['image/jpeg', 'image/png', 'image/gif'];
+        
+      if (!allowedTypes.includes(file.type)) {
+        return { 
+          success: false, 
+          message: `Invalid file type. Allowed: ${allowedTypes.join(', ')}` 
+        };
+      }
+    } else {
+      // Generic upload case
+      bucket = bucketOrClientId;
+      const path = fileTypeOrPath;
+      fullPath = `${path}/${fileName}`.replace(/\/+/g, '/');
+    }
+    
+    // Upload file
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fullPath, file, {
+        cacheControl: '3600',
+        contentType: file.type,
+        upsert: false
+      });
+      
+    if (error) {
+      console.error("Upload error:", error);
+      return { success: false, message: error.message };
+    }
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fullPath);
+      
+    // For client uploads, save to database
+    if (isClientUpload) {
+      await saveFilesToClient({
+        clientId: bucketOrClientId,
+        fileUrl: urlData.publicUrl,
+        fileType: fileTypeOrPath as 'mission' | 'image',
+        fileName: file.name
+      });
+    }
+    
+    return { 
+      success: true, 
+      url: urlData.publicUrl,
+      message: "File uploaded successfully"
+    };
+  } catch (error) {
+    console.error("Server upload error:", error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : "Unknown error occurred" 
     };
   }
 }

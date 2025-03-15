@@ -37,25 +37,7 @@ export function useClient(clientId: string | null, options: UseClientOptions = {
     }
 
     try {
-      // Check cache first
-      const cachedClient = getStorageItem<ClientData>(`client_${clientId}`)
-      const cachedTime = getStorageItem<number>(`client_${clientId}_time`)
-      const now = Date.now()
-      
-      if (cachedClient && cachedTime && (now - cachedTime) < cacheTime) {
-        setClient(cachedClient)
-        
-        if (!cachedClient.vm_ip && !vmPromptShown) {
-          setCurrentView('config')
-          setVmPromptShown(true)
-        }
-        
-        await loadDroneAssignments(clientId)
-        setLoading(false)
-        return
-      }
-      
-      // Fetch fresh data
+      // Get data through server action, not direct DB access
       const result = await getClientDetails(clientId)
       if (!result.success || !result.data) {
         if (redirectOnError) router.push('/')
@@ -64,7 +46,7 @@ export function useClient(clientId: string | null, options: UseClientOptions = {
       
       setClient(result.data)
       setStorageItem(`client_${clientId}`, result.data)
-      setStorageItem(`client_${clientId}_time`, now)
+      setStorageItem(`client_${clientId}_time`, Date.now())
       
       if (!result.data.vm_ip && !vmPromptShown) {
         setCurrentView('config')

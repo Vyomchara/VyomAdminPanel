@@ -31,7 +31,7 @@ export function ImageUploader({ clientId }: { clientId: string }) {
             maxFiles: 10,
             maxSize: 5 * 1024 * 1024, // 5MB
           }}
-          bucket="client-images"
+          bucket="image"
           path={`client-${clientId}`}
           onUploadComplete={(urls) => {
             toast.success(`Uploaded ${urls.length} images`);

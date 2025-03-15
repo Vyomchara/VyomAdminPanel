@@ -33,12 +33,13 @@ const useMediaUploader = () => {
   return context;
 };
 
+// Change the props type
 type MediaUploaderProps = {
   value: File[] | null;
   onValueChange: (files: File[] | null) => void;
   dropzoneOptions: DropzoneOptions;
-  bucket?: string;
-  path?: string;
+  clientId?: string; // Changed from bucket
+  fileType?: 'mission' | 'image'; // Changed from path
   onUploadComplete?: (urls: string[]) => void;
   buttonText?: string;
   children: React.ReactNode;
@@ -50,21 +51,22 @@ export const MediaUploader = forwardRef<
   MediaUploaderProps & React.HTMLAttributes<HTMLDivElement>
 >(
   (
-    {
+    props,
+    ref,
+  ) => {
+    const {
       className,
       value,
       onValueChange,
       dropzoneOptions,
-      bucket,
-      path = '',
+      clientId, // Changed from bucket
+      fileType = 'image', // Changed from path, with default
       onUploadComplete,
       buttonText = "Upload Files",
       imageOnly = false,
       children,
-      ...props
-    },
-    ref,
-  ) => {
+      ...rest  // ✅ Change to a different name
+    } = props;
     const [isUploading, setIsUploading] = useState(false);
     
     // Generate preview URLs for images
@@ -160,7 +162,7 @@ export const MediaUploader = forwardRef<
 
     // Handle file upload to Supabase if bucket is provided
     const handleUpload = async () => {
-      if (!value || value.length === 0 || !bucket) {
+      if (!value || value.length === 0 || !clientId || !fileType) {
         toast.error("Please select files to upload");
         return;
       }
@@ -168,8 +170,8 @@ export const MediaUploader = forwardRef<
       setIsUploading(true);
       
       try {
-        // Use the centralized uploadFilesToSupabase utility
-        const { urls, errors } = await uploadFilesToSupabase(value, bucket, path);
+        // Updated to match parameter order
+        const { urls, errors } = await uploadFilesToSupabase(value, clientId, fileType);
         
         // Handle errors if any
         if (errors.length > 0) {
@@ -212,12 +214,12 @@ export const MediaUploader = forwardRef<
         <div 
           ref={ref} 
           className={cn("space-y-4", className)}
-          {...props}
+          {...rest}  // ✅ Use the new name here
         >
           {children}
           
           {/* Upload button appears if bucket is provided and files are selected */}
-          {bucket && value && value.length > 0 && (
+          {clientId && value && value.length > 0 && (
             <Button 
               onClick={handleUpload} 
               className="w-full"
