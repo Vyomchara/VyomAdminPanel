@@ -39,7 +39,7 @@ type MediaUploaderProps = {
   onValueChange: (files: File[] | null) => void;
   dropzoneOptions: DropzoneOptions;
   clientId?: string; // Changed from bucket
-  fileType?: 'mission' | 'image'; // Changed from path
+  fileType?: 'image'|'mission'; // Changed from path
   onUploadComplete?: (urls: string[]) => void;
   buttonText?: string;
   children: React.ReactNode;

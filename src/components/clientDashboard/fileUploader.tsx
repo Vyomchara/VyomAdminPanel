@@ -32,12 +32,13 @@ const useFileUploader = () => {
   return context;
 };
 
+// Update the FileUploaderProps type definition
 type FileUploaderProps = {
   value: File[] | null;
   onValueChange: (files: File[] | null) => void;
   dropzoneOptions: DropzoneOptions;
-  bucket?: string;
-  path?: string;
+  fileType: "mission" | "image"; // Changed from bucket: string
+  clientId: string;              // Changed from path: string
   onUploadComplete?: (urls: string[]) => void;
   buttonText?: string;
   children: React.ReactNode;
@@ -54,8 +55,8 @@ export const FileUploader = forwardRef<
       value,
       onValueChange,
       dropzoneOptions,
-      bucket,
-      path = '',
+      fileType,         // Changed from bucket
+      clientId,         // Changed from path
       onUploadComplete,
       buttonText = "Upload Files",
       imageOnly = false,
@@ -157,9 +158,9 @@ export const FileUploader = forwardRef<
       onValueChange(newFiles.length ? newFiles : null);
     };
 
-    // Handle file upload to Supabase if bucket is provided
+    // Handle file upload to Supabase if fileType is provided
     const handleUpload = async () => {
-      if (!value || value.length === 0 || !bucket) {
+      if (!value || value.length === 0 || !fileType) {
         toast.error("Please select files to upload");
         return;
       }
@@ -167,8 +168,8 @@ export const FileUploader = forwardRef<
       setIsUploading(true);
       
       try {
-        // Use uploadFilesToSupabase utility function
-        const { urls, errors } = await uploadFilesToSupabase(value, bucket, path);
+        // Updated parameter order to match API requirements
+        const { urls, errors } = await uploadFilesToSupabase(value, clientId, fileType);
         
         // Show error notifications for any failed uploads
         if (errors.length > 0) {
@@ -216,8 +217,8 @@ export const FileUploader = forwardRef<
         >
           {children}
           
-          {/* Upload button appears if bucket is provided and files are selected */}
-          {bucket && value && value.length > 0 && (
+          {/* Change condition to use fileType instead of bucket */}
+          {fileType && value && value.length > 0 && (
             <Button 
               onClick={handleUpload} 
               className="w-full"

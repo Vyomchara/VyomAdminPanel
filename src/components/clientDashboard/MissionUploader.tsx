@@ -12,9 +12,70 @@ import {
   MediaItem 
 } from "@/components/clientDashboard/MediaUploader"
 import { saveFilesToClient } from "@/app/action";
+import { uploadFilesToSupabase } from "@/lib/supabase";
 
 export function MissionUploader({ clientId }: { clientId: string }) {
   const [files, setFiles] = useState<File[] | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  
+  const handleUpload = async () => {
+    if (!files || files.length === 0) {
+      toast.error("Please select files to upload");
+      return;
+    }
+    
+    setIsUploading(true);
+    
+    try {
+      // Use the uploadFilesToSupabase utility to upload the files
+      const { urls, errors } = await uploadFilesToSupabase(
+        files,
+        clientId,
+        "mission"
+      );
+      
+      // Show error notifications for any failed uploads
+      if (errors.length > 0) {
+        errors.forEach(error => {
+          toast.error(`Upload error: ${error.message}`);
+        });
+      }
+      
+      // Process successfully uploaded files
+      if (urls.length > 0) {
+        toast.success(`Uploaded ${urls.length} mission files`);
+        
+        // Save URLs to database
+        let allSuccess = true;
+        for (const url of urls) {
+          const fileName = url.split('/').pop() || 'unknown';
+          const result = await saveFilesToClient({
+            clientId,
+            fileUrl: url,
+            fileType: 'mission',
+            fileName
+          });
+          
+          if (!result.success) {
+            toast.error(`Failed to save file record: ${result.error}`);
+            allSuccess = false;
+            break;
+          }
+        }
+        
+        if (allSuccess) {
+          toast.success("All file records saved successfully");
+        }
+        
+        // Clear files after successful upload
+        setFiles(null);
+      }
+    } catch (error) {
+      toast.error(`Upload failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
   
   return (
     <div className="space-y-6">
@@ -37,8 +98,8 @@ export function MissionUploader({ clientId }: { clientId: string }) {
               'application/zip': ['.zip'],
             }
           }}
-          bucket="mission-files"  // Enable Supabase uploads
-          path={`client-${clientId}`}
+          fileType="mission"
+          clientId={clientId}
           onUploadComplete={async (urls) => {
             toast.success(`Uploaded ${urls.length} mission files`);
             

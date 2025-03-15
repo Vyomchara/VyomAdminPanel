@@ -10,7 +10,7 @@ import { uploadFileToServer } from "@/app/action";
 export async function uploadFileToSupabase(
   file: File, 
   clientId: string,
-  fileType: 'mission' | 'image'
+  fileType: 'mission' | 'image'  // Correctly allows both types
 ): Promise<{ url: string | null; error: Error | null }> {
   try {
     // Create FormData for server action
@@ -40,12 +40,13 @@ export async function uploadFileToSupabase(
 export async function uploadFilesToSupabase(
   files: File[], 
   clientId: string,
-  fileType: "mission" | "image"  // Match the same type as uploadFileToSupabase
+  fileType: "mission" | "image"  // Fixed to allow both mission and image types
 ): Promise<{ urls: string[]; errors: Error[] }> {
   const results = await Promise.allSettled(
     files.map(file => uploadFileToSupabase(file, clientId, fileType))
   );
   
+  // Rest of the function remains the same
   const urls: string[] = [];
   const errors: Error[] = [];
   
