@@ -29,6 +29,27 @@
       "when": 1741796526925,
       "tag": "0003_sad_patch",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1742126275810,
+      "tag": "0004_plain_magik",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1742127181687,
+      "tag": "0005_spotty_mindworm",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1742127347755,
+      "tag": "0006_oval_bullseye",
+      "breakpoints": true
     }
   ]
 }

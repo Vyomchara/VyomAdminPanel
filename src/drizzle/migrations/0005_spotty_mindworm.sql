@@ -1,0 +1,1 @@
+ALTER TABLE "drone_payload_assignment" ALTER COLUMN "assignment_id" SET NOT NULL;

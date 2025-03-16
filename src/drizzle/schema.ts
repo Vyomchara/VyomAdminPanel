@@ -33,6 +33,7 @@ export const ClientDroneAssignment = pgTable("client_drone_assignment",{
 export const DronePayloadAssignment = pgTable("drone_payload_assignment",{
     id: uuid('id').defaultRandom().primaryKey(),
     assignmentId: uuid('assignment_id').references(()=>ClientDroneAssignment.id),
+    //assignmentId: uuid('assignment_id').notNull().references(() => ClientDroneAssignment.id, { onDelete: "no action", onUpdate: "no action" }),
     payloadId: integer('payload_id').references(()=>Payload.id)
 })
 
