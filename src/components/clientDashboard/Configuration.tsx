@@ -20,6 +20,7 @@ export function Configuration({ clientId, vm_ip, onUpdate }: ConfigurationProps)
   const [vmPassword, setVmPassword] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(!vm_ip) // Auto-open if VM IP is not set
   const [isRefreshing, setIsRefreshing] = useState(false)
+ // const [passwordAuthEnabled, setPasswordAuthEnabled] = useState(false)
 
   // Function to refresh client data
   const refreshData = async () => {
@@ -40,7 +41,9 @@ export function Configuration({ clientId, vm_ip, onUpdate }: ConfigurationProps)
         // Since vm_password isn't implemented yet, don't try to access it
         // Instead, we'll use the password from the form submission
         // This avoids the TypeScript error while maintaining functionality
-        // setVmPassword(result.data.vm_password || null)
+        console.log("before VM password from server:", result.data.vm_password)
+        setVmPassword(result.data.vm_password || null)
+        console.log("after VM password from server:", result.data.vm_password)
       }
     } catch (error) {
       console.error('Error refreshing client data:', error)
@@ -173,21 +176,7 @@ export function Configuration({ clientId, vm_ip, onUpdate }: ConfigurationProps)
               setIsDialogOpen(false)
             }}
           />
-          {/* Add a "Configure Later" button at the bottom */}
-          {!vmIpState && (
-            <div className="mt-4 pt-4 border-t text-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsDialogOpen(false)}
-              >
-                Configure Later
-              </Button>
-              <p className="text-xs text-muted-foreground mt-2">
-                Some features may be unavailable without VM configuration.
-              </p>
-            </div>
-          )}
+         
         </DialogContent>
       </Dialog>
     </div>
@@ -295,9 +284,7 @@ async function updateClientVMSettings(
   try {
     // Use if/else instead of a ternary for executing different code blocks
     if (vmPassword !== null) {
-      console.log("VM password update would happen here:",
-        { clientId, hasPassword: !!vmPassword });
-
+     
       // Password update logic
       const passwordResult = await updateClientVMIPAndPassword(clientId, {
         vmIp: vmIp, 
@@ -309,7 +296,7 @@ async function updateClientVMSettings(
           error: "Failed to update VM settings - no response received"
         };
       }
-      
+
       if (!passwordResult.success) {
         // If password update fails, still return partial success
         return {

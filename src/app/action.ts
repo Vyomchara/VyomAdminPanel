@@ -101,6 +101,7 @@ export async function updateClientVMIPAndPassword(clientId:string, data:{
     }
     await serviceMethods.updateClient(clientId, { vm_ip: data.vmIp, vm_password: data.vmPassword });
     revalidatePath(`/client?id=${clientId}`);    
+    return { success: true, message: "VM IP and password updated successfully" };
   } catch (err:any) {
     return { success: false, message: `Unable to update VM IP and VM Password: ${err.message}` };
   }

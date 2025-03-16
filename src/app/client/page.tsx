@@ -14,16 +14,8 @@ export default function ClientPage() {
   const id = searchParams.get('id')
   
   const {
-    client,
-    droneAssignments,
-    loading,
-    currentView,
-    setCurrentView,
-    refreshClientData
-  } = useClient(id, {
-    initialView: 'summary',
-    redirectOnError: true
-  })
+    client,droneAssignments,loading,currentView,setCurrentView,refreshClientData
+  } = useClient(id, {initialView: 'summary',redirectOnError: true})
   
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
