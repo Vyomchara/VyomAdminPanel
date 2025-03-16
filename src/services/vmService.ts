@@ -11,12 +11,12 @@ import { VMSettingsUpdateResponse } from "@/types/types"
  */
 export async function updateClientVMSettings(
   clientId: string, 
-  vmIp: string, 
+  vm_ip: string, 
   vmPassword: string | null = null
 ): Promise<VMSettingsUpdateResponse> {
   try {
     // Currently the API only supports updating the VM IP address
-    const result = await updateClientVMIP(clientId, vmIp)
+    const result = await updateClientVMIP(clientId, { vm_ip })
     
     if (!result.success) {
       return { 

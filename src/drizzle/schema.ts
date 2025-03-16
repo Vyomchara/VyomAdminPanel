@@ -10,7 +10,7 @@ export const Client = pgTable("client", {
     address: text('address').notNull(),
     created_at: timestamp('created_at').notNull().defaultNow(),
     vm_ip: text('vm_ip'), // Keep vm_ip
-    // Remove vm_password field
+    vm_password:text('vm_password')  //vm_password field
 })
 
 export const Drone = pgTable("drone",{
@@ -41,7 +41,8 @@ export const clientCreateSchema = createInsertSchema(Client,{
     name: z.string().nonempty(),
     email: z.string().nonempty().email(),
     address: z.string().nonempty().max(200),
-    vm_ip: z.string().ip({version:"v4"}).optional(), // Keep vm_ip validation
+    vm_ip: z.string().ip({version:"v4"}).optional(),
+    vm_password:z.string().optional() // Keep vm_ip validation
     // Remove vm_password validation
 })
 export const clientUpdateSchema = createUpdateSchema(Client)
