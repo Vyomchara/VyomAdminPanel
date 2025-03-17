@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { UploadCloud, CheckCircle2, Trash2, FileText, Image as ImageIcon, File } from "lucide-react";
 
-// Import from the centralized supabase utility file
-import { uploadFileToSupabase, uploadFilesToSupabase } from "@/lib/supabase";
+// Import from the new direct upload functions
+import { uploadFileToBucket, uploadMultipleFiles } from "@/lib/createBucket";
 
 // Context for sharing state between components
 type MediaUploaderContextType = {
@@ -162,7 +162,7 @@ export const MediaUploader = forwardRef<
 
     // Handle file upload to Supabase if bucket is provided
     const handleUpload = async () => {
-      if (!value || value.length === 0 || !clientId || !fileType) {
+      if (!value || value.length === 0 || !clientId) {
         toast.error("Please select files to upload");
         return;
       }
@@ -170,8 +170,12 @@ export const MediaUploader = forwardRef<
       setIsUploading(true);
       
       try {
-        // Updated to match parameter order
-        const { urls, errors } = await uploadFilesToSupabase(value, clientId, fileType);
+        // Use the new uploadMultipleFiles function instead
+        const { urls, errors } = await uploadMultipleFiles(
+          value, 
+          clientId,
+          'mission' // Hardcoded to 'image' bucket for now
+        );
         
         // Handle errors if any
         if (errors.length > 0) {

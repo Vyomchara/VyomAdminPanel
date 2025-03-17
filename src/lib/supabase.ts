@@ -40,7 +40,7 @@ export async function uploadFileToSupabase(
 export async function uploadFilesToSupabase(
   files: File[], 
   clientId: string,
-  fileType: "mission" | "image"  // Fixed to allow both mission and image types
+  fileType: "mission" | "image"  // Fixed to match consistent naming
 ): Promise<{ urls: string[]; errors: Error[] }> {
   const results = await Promise.allSettled(
     files.map(file => uploadFileToSupabase(file, clientId, fileType))

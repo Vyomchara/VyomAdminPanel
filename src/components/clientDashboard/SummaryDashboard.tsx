@@ -1,6 +1,6 @@
 "use client"
 
-import { DroneTable } from "../clientDashboard/DroneTable"
+import { DroneTable } from "./DroneTable"
 import { toast } from "sonner"
 import { Mail, MapPin, Server, Trash2, Edit2, Plus, Eye, EyeOff, Lock } from "lucide-react" // Added Plus, Eye, and EyeOff icons
 import Image from "next/image"

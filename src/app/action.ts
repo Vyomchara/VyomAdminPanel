@@ -261,7 +261,8 @@ export async function uploadFileToServer(
       fullPath = `clients/${clientId}/${fileType}s/${fileName}`;
       
       // Validate file type for client uploads
-      const allowedTypes = fileType === 'mission' 
+     // const allowedTypes = fileType === 'mission'
+     const allowedTypes = fileType === 'image' 
         ? ['application/json', 'application/x-yaml']
         : ['image/jpeg', 'image/png', 'image/gif'];
         

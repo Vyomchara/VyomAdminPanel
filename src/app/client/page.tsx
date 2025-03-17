@@ -5,7 +5,7 @@ import { useClient } from "@/hooks/useClient"
 // Import View type to ensure consistency
 import { View } from "@/types/types"
 import { Sidebar } from "@/components/dashboard/Sidebar"
-import { SummaryDashboard } from "@/components/dashboard/SummaryDashboard"
+import { SummaryDashboard } from "@/components/clientDashboard/SummaryDashboard"
 import { Configuration } from "@/components/clientDashboard/Configuration"
 import { MissionUploader } from "@/components/clientDashboard/MissionUploader"
 
@@ -42,6 +42,7 @@ export default function ClientPage() {
           <Configuration  
             clientId={client?.id || ''} 
             vm_ip={client?.vm_ip || ''}
+            vm_password={client?.vm_password || null}
             onUpdate={refreshClientData}
           />
         )}

@@ -24,7 +24,8 @@ export function validateFile(
   
   // Check file type
   const allowedTypes = options.allowedTypes || (
-    options.fileType === 'mission' 
+    //options.fileType === 'mission'
+    options.fileType === 'image'  
       ? ['application/json', 'application/x-yaml']
       : ['image/jpeg', 'image/png', 'image/gif']
   );

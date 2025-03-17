@@ -37,7 +37,7 @@ type FileUploaderProps = {
   value: File[] | null;
   onValueChange: (files: File[] | null) => void;
   dropzoneOptions: DropzoneOptions;
-  fileType: "mission" | "image"; // Changed from bucket: string
+  fileType: "image";  // Changed from "mission" | "image" to just "image"
   clientId: string;              // Changed from path: string
   onUploadComplete?: (urls: string[]) => void;
   buttonText?: string;

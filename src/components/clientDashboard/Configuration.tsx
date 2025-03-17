@@ -5,22 +5,29 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Network, Server, Loader2 } from "lucide-react"
+import { Network, Server, Loader2, Eye, EyeOff, Lock } from "lucide-react"
 import { toast } from "sonner"
 import { getClientDetails, updateClientVMIP, updateClientVMIPAndPassword } from "@/app/action"
 
 interface ConfigurationProps {
   clientId: string
   vm_ip: string | null
+  vm_password?: string | null
   onUpdate: () => Promise<void>
 }
 
-export function Configuration({ clientId, vm_ip, onUpdate }: ConfigurationProps) {
+export function Configuration({ 
+  clientId, 
+  vm_ip, 
+  vm_password = null,  // Add with default value
+  onUpdate 
+}: ConfigurationProps) {
   const [vmIpState, setVmIpState] = useState(vm_ip)
-  const [vmPassword, setVmPassword] = useState<string | null>(null)
+  const [vmPassword, setVmPassword] = useState<string | null>(vm_password) // Initialize with prop value
+  const [showVmPassword, setShowVmPassword] = useState(false) // Add visibility toggle
   const [isDialogOpen, setIsDialogOpen] = useState(!vm_ip) // Auto-open if VM IP is not set
   const [isRefreshing, setIsRefreshing] = useState(false)
- // const [passwordAuthEnabled, setPasswordAuthEnabled] = useState(false)
+  const [showVmIp, setShowVmIp] = useState(false) // Add this state for IP visibility toggle
 
   // Function to refresh client data
   const refreshData = async () => {
@@ -52,10 +59,11 @@ export function Configuration({ clientId, vm_ip, onUpdate }: ConfigurationProps)
     }
   }
 
-  // This effect runs when vm_ip prop changes
+  // This effect runs when vm_ip or vm_password props change
   useEffect(() => {
     setVmIpState(vm_ip)
-  }, [vm_ip])
+    setVmPassword(vm_password) // Update password state when prop changes
+  }, [vm_ip, vm_password])
 
   // Automatically show dialog when component mounts if VM IP is not set
   useEffect(() => {
@@ -82,38 +90,65 @@ export function Configuration({ clientId, vm_ip, onUpdate }: ConfigurationProps)
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* VM IP Address with colorized background */}
           <div className="flex items-center">
-            <Network className="h-5 w-5 mr-3 text-muted-foreground" />
-            <div>
+            <div className="bg-blue-100 dark:bg-blue-900/20 p-2 rounded-full mr-3">
+              <Server className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="flex-1">
               <p className="text-xs text-muted-foreground">VM IP Address</p>
-              <p className="text-sm font-medium">{vmIpState || 'Not configured'}</p>
+              <div className="flex items-center">
+                <p className="text-sm font-medium mr-2">
+                  {vmIpState
+                    ? (showVmIp ? vmIpState : '••••••••')
+                    : 'Not configured'}
+                </p>
+                {vmIpState && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 w-6 p-0" 
+                    onClick={() => setShowVmIp(!showVmIp)}
+                  >
+                    {showVmIp ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* VM Password Field */}
-          <div className=" flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5 mr-3 text-muted-foreground"
-            >
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            <div >
+          {/* VM Password Field with colorized background */}
+          <div className="flex items-center">
+            <div className="bg-amber-100 dark:bg-amber-900/20 p-2 rounded-full mr-3">
+              <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="flex-1">
               <p className="text-xs text-muted-foreground">VM Password</p>
-              <p className="text-sm font-medium">
-                {vmPassword
-                  ? '••••••••'
-                  : vmIpState
-                    ? <span className="text-muted-foreground italic">Key-based authentication</span>
+              <div className="flex items-center">
+                <p className="text-sm font-medium mr-2">
+                  {vmPassword
+                    ? (showVmPassword ? vmPassword : '••••••••')
                     : 'Not configured'}
-              </p>
+                </p>
+                {vmPassword && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 w-6 p-0" 
+                    onClick={() => setShowVmPassword(!showVmPassword)}
+                  >
+                    {showVmPassword ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

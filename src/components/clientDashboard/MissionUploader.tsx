@@ -31,7 +31,8 @@ export function MissionUploader({ clientId }: { clientId: string }) {
       const { urls, errors } = await uploadFilesToSupabase(
         files,
         clientId,
-        "mission"
+        //"mission"
+        "image"
       );
       
       // Show error notifications for any failed uploads
@@ -52,7 +53,9 @@ export function MissionUploader({ clientId }: { clientId: string }) {
           const result = await saveFilesToClient({
             clientId,
             fileUrl: url,
-            fileType: 'mission',
+            //fileType: 'mission',
+            
+            fileType: 'image',
             fileName
           });
           
@@ -110,7 +113,9 @@ export function MissionUploader({ clientId }: { clientId: string }) {
               const result = await saveFilesToClient({
                 clientId,
                 fileUrl: url,
-                fileType: 'mission',
+                //fileType: 'mission',
+                
+            fileType: 'image',
                 fileName
               });
               
