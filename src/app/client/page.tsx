@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar"
 import { SummaryDashboard } from "@/components/clientDashboard/SummaryDashboard"
 import { Configuration } from "@/components/clientDashboard/Configuration"
 import { MissionUploader } from "@/components/clientDashboard/MissionUploader"
+import { FileGallery } from "@/components/clientDashboard/FileGallery" // Add this import
 
 export default function ClientPage() {
   const searchParams = useSearchParams()
@@ -48,7 +49,10 @@ export default function ClientPage() {
         )}
         
         {currentView === 'missions' && (
-          <MissionUploader clientId={client?.id || ''} />
+          <div className="space-y-8">
+            <MissionUploader clientId={client?.id || ''} />
+            <FileGallery clientId={client?.id || ''} />
+          </div>
         )}
       </div>
     </div>

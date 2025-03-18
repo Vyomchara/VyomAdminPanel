@@ -321,3 +321,20 @@ export async function uploadFileToServer(
     };
   }
 }
+
+export async function getClientFilesAction(clientId: string, bucketName: string) {
+  const supabase = await CreateClient();
+  
+  console.log(`Fetching files for client ${clientId} from ${bucketName} bucket...`);
+  
+  try {
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .list(clientId);
+      
+    // Rest of implementation...
+  } catch (error) {
+    console.error("Error:", error);
+    return { success: false, error: String(error), files: [] };
+  }
+}

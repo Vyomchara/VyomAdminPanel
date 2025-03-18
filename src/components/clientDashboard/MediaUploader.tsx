@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { UploadCloud, CheckCircle2, Trash2, FileText, Image as ImageIcon, File } from "lucide-react";
 
 // Import from the new direct upload functions
-import { uploadFileToBucket, uploadMultipleFiles } from "@/lib/createBucket";
+import { uploadFileToBucket, uploadMultipleFiles } from "@/lib/uploadToBucket";
 
 // Context for sharing state between components
 type MediaUploaderContextType = {

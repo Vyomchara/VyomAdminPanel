@@ -32,7 +32,7 @@ export function MissionUploader({ clientId }: { clientId: string }) {
         files,
         clientId,
         //"mission"
-        "image"
+        "mission"
       );
       
       // Show error notifications for any failed uploads
@@ -55,7 +55,7 @@ export function MissionUploader({ clientId }: { clientId: string }) {
             fileUrl: url,
             //fileType: 'mission',
             
-            fileType: 'image',
+            fileType: 'mission',
             fileName
           });
           

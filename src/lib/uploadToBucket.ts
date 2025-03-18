@@ -136,6 +136,69 @@ export async function uploadMultipleFiles(
   return { urls, errors };
 }
 
+/**
+ * Lists files for a specific client from a Supabase bucket
+ */
+import { createClient as createBrowserClient } from "@/lib/supabase/client"; // Add proper import
+
+export async function getClientFiles(
+  clientId: string, 
+  bucketName: string = 'mission'
+) {
+  try {
+    console.log(`Listing files for client ${clientId} from ${bucketName} bucket...`);
+    
+    // Use your existing client implementation with proper import
+    const supabase = createBrowserClient();
+    console.log("Supabase client:", supabase);
+    
+    console.log(`Using client ${clientId} and bucket ${bucketName}`);
+    
+    // List files from client's folder in the bucket
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .list(clientId);
+    
+    console.log("List result:", data, error); // Log the response from Supabase
+    
+    if (error) {
+      console.error(`Error listing files from ${bucketName} bucket:`, error.message);
+      return { success: false, error: error.message, files: [] };
+    }
+    
+    if (!data || data.length === 0) {
+      console.log(`No files found for client ${clientId} in ${bucketName} bucket`);
+      return { success: true, files: [] };
+    }
+    
+    // For each file, get its public URL
+    const filesWithUrls = await Promise.all(
+      data.map(async (fileObj) => {
+        // Fix: The getPublicUrl method now expects the path as an argument
+        const { data: urlData } = supabase.storage
+          .from(bucketName)
+          .getPublicUrl(`${clientId}/${fileObj.name}`);
+        
+        return {
+          ...fileObj,
+          url: urlData.publicUrl,
+          path: `${clientId}/${fileObj.name}`,
+          bucketName
+        };
+      })
+    );
+    
+    return { success: true, files: filesWithUrls };
+  } catch (error) {
+    console.error("Failed to list files:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+      files: [] 
+    };
+  }
+}
+
 // Update the FileUploaderProps type definition in fileUploader.tsx
 type FileUploaderProps = {
   value: File[] | null;
