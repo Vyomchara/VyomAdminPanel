@@ -199,6 +199,136 @@ export async function getClientFiles(
   }
 }
 
+/**
+ * Enhanced function to retrieve mission files with advanced options
+ * 
+ * @param clientId - The ID of the client whose files to retrieve
+ * @param options - Configuration options for file retrieval
+ * @returns Object containing success status, files array, and any error information
+ */
+export async function getMissionFiles(
+  clientId: string,
+  options: {
+    bucketName?: string;
+    fileType?: string | string[];
+    sortBy?: 'name' | 'created' | 'size';
+    sortDirection?: 'asc' | 'desc';
+    limit?: number;
+  } = {}
+) {
+  try {
+    // Default options
+    const {
+      bucketName = 'mission',
+      fileType,
+      sortBy = 'name',
+      sortDirection = 'asc',
+      limit
+    } = options;
+
+    if (!clientId) {
+      return { success: false, error: "Client ID is required", files: [] };
+    }
+
+    const supabase = createBrowserClient();
+    
+    // List files from client's folder in the bucket
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .list(clientId, {
+        limit: limit,
+        sortBy: { column: sortBy === 'name' ? 'name' : 'created_at', order: sortDirection }
+      });
+    
+    if (error) {
+      return { success: false, error: error.message, files: [] };
+    }
+    
+    if (!data || data.length === 0) {
+      return { success: true, files: [] };
+    }
+
+    // Apply file type filtering if specified
+    let filteredData = data;
+    if (fileType) {
+      const fileTypes = Array.isArray(fileType) ? fileType : [fileType];
+      filteredData = data.filter(file => {
+        const extension = file.name.split('.').pop()?.toLowerCase() || '';
+        return fileTypes.includes(extension);
+      });
+    }
+    
+    // Get public URLs and additional metadata for each file
+    const filesWithUrls = await Promise.all(
+      filteredData.map(async (fileObj) => {
+        const filePath = `${clientId}/${fileObj.name}`;
+        const { data: urlData } = supabase.storage
+          .from(bucketName)
+          .getPublicUrl(filePath);
+        
+        // Extract creation date from filename if it contains a timestamp
+        const timestampMatch = fileObj.name.match(/^(\d+)_/);
+        const createdAt = timestampMatch 
+          ? new Date(parseInt(timestampMatch[1]))
+          : new Date(fileObj.created_at || Date.now());
+        
+        // Extract file extension for type identification
+        const extension = fileObj.name.split('.').pop()?.toLowerCase() || '';
+        
+        return {
+          ...fileObj,
+          url: urlData.publicUrl,
+          path: filePath,
+          bucketName,
+          extension,
+          createdAt,
+          // Format the file size for display
+          sizeFormatted: formatFileSize(fileObj.metadata?.size || 0)
+        };
+      })
+    );
+    
+    // Sort the results if needed
+    if (sortBy === 'created') {
+      filesWithUrls.sort((a, b) => {
+        const dateA = a.createdAt.getTime();
+        const dateB = b.createdAt.getTime();
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      });
+    } else if (sortBy === 'size') {
+      filesWithUrls.sort((a, b) => {
+        const sizeA = a.metadata?.size || 0;
+        const sizeB = b.metadata?.size || 0;
+        return sortDirection === 'asc' ? sizeA - sizeB : sizeB - sizeA;
+      });
+    }
+    
+    return { 
+      success: true, 
+      files: filesWithUrls,
+      totalCount: data.length
+    };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+      files: [] 
+    };
+  }
+}
+
+/**
+ * Helper function to format file size into human-readable format
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  
+  return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
 // Update the FileUploaderProps type definition in fileUploader.tsx
 type FileUploaderProps = {
   value: File[] | null;

@@ -1,199 +1,154 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { RefreshCw, FileType2, Filter } from "lucide-react"
 import { toast } from "sonner"
-import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from "@/components/ui/table"
-import { getClientFiles } from "@/lib/uploadToBucket" 
-import { Download, Eye, FileIcon, Trash2, Image, FilePlus } from "lucide-react"
+import { getMissionFiles } from "@/lib/uploadToBucket"
+import { MissionFilesTable } from "./MissionFilesTable"
+import { createClient } from "@/lib/supabase/client"
 
-// File type definition
-interface FileItem {
-  name: string;
-  id: string;
-  created_at: string;
-  updated_at: string;
-  last_accessed_at: string;
-  metadata: any;
-  url: string;
-  path: string;
-  bucketName: string;
-  size: number;
-}
-
-// Update the component props to accept a bucketName
-export function FileGallery({ 
-  clientId, 
-  bucketName = 'mission' // Default to images but allow override
-}: { 
-  clientId: string;
-  bucketName?: string;
-}) {
-  const [files, setFiles] = useState<FileItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export function FileGallery({ clientId }: { clientId: string }) {
+  const [isLoading, setIsLoading] = useState(true)
+  const [files, setFiles] = useState<any[]>([])
+  const [sortBy, setSortBy] = useState<'name' | 'created' | 'size'>('created')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  const [fileType, setFileType] = useState<string | null>("all")  // Changed from null to "all"
+  const [searchQuery, setSearchQuery] = useState("")
   
-  // Fetch files when component mounts
-  useEffect(() => {
-    async function fetchFiles() {
-      setLoading(true);
-      try {
-        // Use the bucketName prop instead of hardcoded value
-        const result = await getClientFiles(clientId, bucketName);
-        
-        if (result && result.success) {
-          setFiles(result.files.map(file => 
-            Object.assign({}, file, { size: (file as any).size || 0 })
-          ));
-          setError(null);
-        } else {
-          setError(result?.error || "Failed to fetch files");
-        }
-      } catch (err) {
-        setError("An unexpected error occurred");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
+  // Get file extensions from the current files for filter dropdown
+  const availableFileTypes = Array.from(new Set(files.map(file => file.extension))).filter(Boolean)
+  
+  // Filter files based on search query and file type filter
+  const filteredFiles = files.filter(file => {
+    const matchesSearch = searchQuery ? 
+      file.name.toLowerCase().includes(searchQuery.toLowerCase()) : 
+      true
     
-    fetchFiles();
-  }, [clientId, bucketName]); // Add bucketName to dependencies
+    const matchesType = fileType && fileType !== "all" ? 
+      file.extension === fileType : 
+      true
+      
+    return matchesSearch && matchesType
+  })
   
-  // Function to format file size
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / 1048576).toFixed(1)} MB`;
-  };
-  
-  // Function to format date
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-  
-  // Function to determine if file is an image
-  const isImage = (name: string) => {
-    return /\.(jpg|jpeg|png|gif|webp)$/i.test(name);
-  };
-  
-  // Get file name without the timestamp prefix
-  const getDisplayName = (fullName: string) => {
-    const parts = fullName.split('_');
-    if (parts.length > 1) {
-      // Remove the timestamp prefix
-      return parts.slice(1).join('_');
+  const loadFiles = async () => {
+    if (!clientId) return
+    
+    setIsLoading(true)
+    
+    try {
+      const response = await getMissionFiles(clientId, {
+        bucketName: 'mission',
+        sortBy,
+        sortDirection,
+      })
+      
+      if (response.success) {
+        setFiles(response.files)
+      } else {
+        console.error("Error loading files:", response.error)
+        toast.error(`Failed to load files: ${response.error}`)
+        setFiles([])
+      }
+    } catch (error) {
+      console.error("Error:", error)
+      toast.error(`Error loading files: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setFiles([])
+    } finally {
+      setIsLoading(false)
     }
-    return fullName;
-  };
-
-  const deleteFile = async (path: string, bucketName: string) => {
-    // Implement file deletion logic here
-    toast.info("File deletion would happen here");
-  };
+  }
+  
+  // Function to handle file deletion
+  const handleDeleteFile = async (file: any) => {
+    try {
+      const supabase = createClient()
+      
+      const { error } = await supabase.storage
+        .from(file.bucketName)
+        .remove([file.path])
+        
+      if (error) {
+        throw new Error(error.message)
+      }
+      
+      // Refresh file list after deletion
+      loadFiles()
+      return true
+    } catch (error) {
+      console.error("Error deleting file:", error)
+      return false
+    }
+  }
+  
+  // Handle sort change from the table component
+  const handleSortChange = (column: 'name' | 'created' | 'size', direction: 'asc' | 'desc') => {
+    setSortBy(column)
+    setSortDirection(direction)
+  }
+  
+  // Initial load and reload when sort parameters change
+  useEffect(() => {
+    if (clientId) {
+      loadFiles()
+    }
+  }, [clientId, sortBy, sortDirection])
   
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">
-          File Gallery 
-          <span className="ml-2 text-sm font-normal text-muted-foreground">
-            ({bucketName} bucket)
-          </span>
-        </h2>
-        <div className="space-x-2">
-          <Button onClick={() => window.location.reload()}>
-            <FilePlus className="h-4 w-4 mr-2" />
-            Refresh Files
-          </Button>
-        </div>
+        <h2 className="text-xl font-bold">Mission Files</h2>
+        <Button variant="outline" size="sm" onClick={loadFiles}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
       </div>
       
-      <Card className="p-6 relative">
-        {loading ? (
-          <div className="flex justify-center items-center p-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-          </div>
-        ) : error ? (
-          <div className="text-center p-8 text-red-500">{error}</div>
-        ) : files.length === 0 ? (
-          <div className="text-center p-8 text-muted-foreground">
-            No files found for this client
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>File Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Uploaded</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {files.map((file) => (
-                  <TableRow key={file.path}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        {isImage(file.name) ? (
-                          <Image className="h-5 w-5 mr-2 text-blue-500" />
-                        ) : (
-                          <FileIcon className="h-5 w-5 mr-2 text-muted-foreground" />
-                        )}
-                        <span className="truncate max-w-[200px]" title={getDisplayName(file.name)}>
-                          {getDisplayName(file.name)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{isImage(file.name) ? 'Image' : 'Document'}</TableCell>
-                    <TableCell>{formatFileSize(file.size || 0)}</TableCell>
-                    <TableCell>{file.created_at ? formatDate(file.created_at) : 'Unknown'}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => window.open(file.url, '_blank')}
-                          title={isImage(file.name) ? "Preview image" : "Download file"}
-                        >
-                          {isImage(file.name) ? (
-                            <Eye className="h-4 w-4" />
-                          ) : (
-                            <Download className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          className="text-destructive hover:bg-destructive/10"
-                          onClick={() => deleteFile(file.path, file.bucketName)}
-                          title="Delete file"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+      <Card className="p-6">
+        <div className="flex flex-wrap gap-4 mb-6">
+          <div className="flex items-center space-x-2">
+            <FileType2 className="h-4 w-4 text-muted-foreground" />
+            <Select
+              value={fileType || "all"}
+              onValueChange={(value) => setFileType(value)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All file types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All file types</SelectItem>
+                {availableFileTypes.map(type => (
+                  <SelectItem key={type} value={type}>{type.toUpperCase()}</SelectItem>
                 ))}
-              </TableBody>
-            </Table>
+              </SelectContent>
+            </Select>
           </div>
-        )}
+          
+          <div className="flex-1 min-w-[240px]">
+            <div className="relative">
+              <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search files by name..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+        
+        <MissionFilesTable
+          files={filteredFiles}
+          isLoading={isLoading}
+          onDeleteFile={handleDeleteFile}
+          onSortChange={handleSortChange}
+        />
       </Card>
     </div>
   )
 }
-
-// Import the existing client implementations
-import { createClient } from "@/lib/supabase/client";
-
-/**
- * Lists files for a specific client from a Supabase bucket
- */
