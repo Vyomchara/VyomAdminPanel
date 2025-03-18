@@ -44,6 +44,7 @@ interface MissionFilesTableProps {
   files: MissionFile[]
   isLoading?: boolean
   onDeleteFile?: (file: MissionFile) => Promise<boolean>
+  onViewFile?: (file: MissionFile) => Promise<boolean> // Add this prop
   onSortChange?: (column: 'name' | 'created' | 'size', direction: 'asc' | 'desc') => void
 }
 
@@ -51,11 +52,13 @@ export function MissionFilesTable({
   files, 
   isLoading = false,
   onDeleteFile,
+  onViewFile, // Add this prop
   onSortChange 
 }: MissionFilesTableProps) {
   const [sortColumn, setSortColumn] = useState<'name' | 'created' | 'size'>('created')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [deletingFile, setDeletingFile] = useState<string | null>(null)
+  const [viewingFile, setViewingFile] = useState<string | null>(null)
 
   // Get the appropriate icon for a file based on its extension
   const getFileIcon = (file: MissionFile) => {
@@ -92,17 +95,29 @@ export function MissionFilesTable({
     }
   }
 
-  // Handle file download
-  const handleDownload = (file: MissionFile) => {
-    // Create a temporary link to trigger download
-    const link = document.createElement('a')
-    link.href = file.url
-    link.download = file.name
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    
-    toast.success(`Downloading ${file.name}`)
+  // Handle file download/view
+  const handleDownload = async (file: MissionFile) => {
+    if (onViewFile) {
+      try {
+        setViewingFile(file.path)
+        await onViewFile(file)
+        toast.success(`Opening ${file.name}`)
+      } catch (error) {
+        toast.error(`Error opening file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      } finally {
+        setViewingFile(null)
+      }
+    } else {
+      // Fall back to direct download if no view handler
+      const link = document.createElement('a')
+      link.href = file.url
+      link.download = file.name
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success(`Downloading ${file.name}`)
+    }
   }
 
   // Handle file deletion
@@ -111,14 +126,24 @@ export function MissionFilesTable({
     
     try {
       setDeletingFile(file.path)
+      
+      // Log detailed file information to help diagnose issues
+      console.log("Deleting file:", {
+        name: file.name,
+        path: file.path,
+        bucket: file.bucketName,
+        fullDetails: file
+      })
+      
       const success = await onDeleteFile(file)
       
       if (success) {
-        toast.success(`Deleted ${file.name}`)
+        toast.success(`Deleted ${file.name.replace(/^\d+_/, '')}`)
       } else {
-        toast.error(`Failed to delete ${file.name}`)
+        toast.error(`Failed to delete ${file.name.replace(/^\d+_/, '')}`)
       }
     } catch (error) {
+      console.error("Delete operation error:", error)
       toast.error(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setDeletingFile(null)
@@ -216,8 +241,16 @@ export function MissionFilesTable({
                       variant="outline" 
                       size="sm"
                       onClick={() => handleDownload(file)}
+                      disabled={viewingFile === file.path}
                     >
-                      <DownloadCloud className="h-4 w-4" />
+                      {viewingFile === file.path ? (
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <DownloadCloud className="h-4 w-4" />
+                      )}
                       <span className="sr-only">Download</span>
                     </Button>
                     

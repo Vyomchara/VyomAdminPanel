@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/drizzle/db"
 import { CreateClient } from "@/lib/supabase/server"
 import { v4 as uuid } from "uuid"
+import { createClient } from '@supabase/supabase-js';
 
 // Remove auth client - using middleware instead
 // const auth = CreateClient();
@@ -184,7 +185,7 @@ export async function deleteClientAction(clientId: string) {
 export async function saveFilesToClient(data: {
   clientId: string;
   fileUrl: string;
-  fileType: 'mission' | 'image';
+  fileType: 'mission';
   fileName: string;
 }) {
   try {
@@ -222,7 +223,7 @@ export async function saveFilesToClient(data: {
 export async function uploadFileToServer(
   formData: FormData,
   bucketOrClientId: string,
-  fileTypeOrPath: string | 'mission' | 'image' = ''
+  fileTypeOrPath: string | 'mission'  = ''
 ): Promise<{ success: boolean; url?: string; message?: string }> {
   'use server';
   
@@ -303,7 +304,7 @@ export async function uploadFileToServer(
       await saveFilesToClient({
         clientId: bucketOrClientId,
         fileUrl: urlData.publicUrl,
-        fileType: fileTypeOrPath as 'mission' | 'image',
+        fileType: fileTypeOrPath as 'mission',
         fileName: file.name
       });
     }
@@ -336,5 +337,148 @@ export async function getClientFilesAction(clientId: string, bucketName: string)
   } catch (error) {
     console.error("Error:", error);
     return { success: false, error: String(error), files: [] };
+  }
+}
+
+/**
+ * Retrieves mission files for a client with secure signed URLs
+ */
+export async function getMissionFilesWithSignedUrls(clientId: string) {
+  try {
+    // Create Supabase client with service role key for admin access
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_KEY! // Use service role key only on the server side
+    );
+
+    // First list all files in the client's folder to get complete information
+    const { data: storageFiles, error: storageError } = await supabase.storage
+      .from("mission")
+      .list(clientId);
+    
+    if (storageError) {
+      console.error("Error listing files from storage:", storageError);
+      return { success: false, error: storageError.message, files: [] };
+    }
+
+    if (!storageFiles || storageFiles.length === 0) {
+      return { success: true, files: [] };
+    }
+
+    // Generate signed URLs and process metadata for each file
+    const filesWithSignedUrls = await Promise.all(
+      storageFiles.map(async (file) => {
+        const filePath = `${clientId}/${file.name}`;
+        
+        // Generate a signed URL with 1-hour expiry
+        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+          .from("mission")
+          .createSignedUrl(filePath, 60 * 60);
+
+        if (signedUrlError) {
+          console.error(`Error creating signed URL for ${file.name}:`, signedUrlError);
+          return null;
+        }
+
+        // Extract file extension
+        const extension = file.name.split('.').pop()?.toLowerCase() || '';
+        
+        // Extract creation timestamp from filename if present
+        const timestampMatch = file.name.match(/^(\d+)_/);
+        const createdAt = timestampMatch 
+          ? new Date(parseInt(timestampMatch[1]))
+          : new Date(file.created_at || Date.now());
+        
+        // Format size for display
+        const fileSize = file.metadata?.size || 0;
+        const sizeFormatted = formatFileSize(fileSize);
+        
+        return {
+          name: file.name,
+          url: signedUrlData.signedUrl,
+          path: filePath,
+          bucketName: "mission",
+          extension,
+          createdAt,
+          sizeFormatted,
+          metadata: file.metadata,
+          id: file.id
+        };
+      })
+    );
+
+    // Filter out any null values from failed signed URL generation
+    const validFiles = filesWithSignedUrls.filter(Boolean);
+    
+    return { 
+      success: true, 
+      files: validFiles,
+      totalCount: validFiles.length
+    };
+  } catch (error) {
+    console.error("Error in getMissionFilesWithSignedUrls:", error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown error occurred",
+      files: [] 
+    };
+  }
+}
+
+/**
+ * Helper function to format file size for display
+ */
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  
+  return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Delete a file from Supabase storage using server credentials
+ */
+export async function deleteFileFromStorage(filePath: string, bucketName: string = 'mission') {
+  try {
+    console.log(`[SERVER] Deleting file from ${bucketName}: ${filePath}`);
+
+    // Create server-side Supabase client with admin privileges
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_KEY! // Fixed: Use the correct environment variable name
+    );
+
+    if (!filePath) {
+      return { success: false, message: "File path is required" };
+    }
+
+    // Validate file path to ensure it's not trying to access files outside intended path
+    if (filePath.includes('..') || filePath.startsWith('/')) {
+      return { success: false, message: "Invalid file path" };
+    }
+
+    // Attempt to delete the file
+    const { error } = await supabase.storage
+      .from(bucketName)
+      .remove([filePath]);
+
+    if (error) {
+      console.error(`[SERVER] Error deleting file: ${error.message}`);
+      return { success: false, message: error.message };
+    }
+
+    // TODO: If you're storing file references in a database, remove those as well
+    // await db.delete(clientFiles).where(eq(clientFiles.file_path, filePath));
+
+    console.log(`[SERVER] Successfully deleted file: ${filePath}`);
+    return { success: true, message: "File deleted successfully" };
+  } catch (error) {
+    console.error("[SERVER] File deletion error:", error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : "Unknown error occurred"
+    };
   }
 }

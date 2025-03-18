@@ -14,7 +14,13 @@ import {
 import { saveFilesToClient } from "@/app/action";
 import { uploadFilesToSupabase } from "@/lib/supabase";
 
-export function MissionUploader({ clientId }: { clientId: string }) {
+// Add onUploadComplete callback prop
+interface MissionUploaderProps {
+  clientId: string;
+  onUploadComplete?: () => void;
+}
+
+export function MissionUploader({ clientId, onUploadComplete }: MissionUploaderProps) {
   const [files, setFiles] = useState<File[] | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   
@@ -31,7 +37,6 @@ export function MissionUploader({ clientId }: { clientId: string }) {
       const { urls, errors } = await uploadFilesToSupabase(
         files,
         clientId,
-        //"mission"
         "mission"
       );
       
@@ -53,8 +58,6 @@ export function MissionUploader({ clientId }: { clientId: string }) {
           const result = await saveFilesToClient({
             clientId,
             fileUrl: url,
-            //fileType: 'mission',
-            
             fileType: 'mission',
             fileName
           });
@@ -68,6 +71,8 @@ export function MissionUploader({ clientId }: { clientId: string }) {
         
         if (allSuccess) {
           toast.success("All file records saved successfully");
+          // Call the callback when upload is complete
+          onUploadComplete?.();
         }
         
         // Clear files after successful upload
@@ -113,9 +118,7 @@ export function MissionUploader({ clientId }: { clientId: string }) {
               const result = await saveFilesToClient({
                 clientId,
                 fileUrl: url,
-                //fileType: 'mission',
-                
-            fileType: 'image',
+                fileType: 'mission',
                 fileName
               });
               
@@ -128,6 +131,8 @@ export function MissionUploader({ clientId }: { clientId: string }) {
             
             if (allSuccess) {
               toast.success("All file records saved successfully");
+              // Call the callback on successful upload
+              onUploadComplete?.();
             }
           }}
           buttonText="Upload Mission Files"

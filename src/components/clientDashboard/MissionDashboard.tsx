@@ -1,12 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MissionUploader } from "@/components/clientDashboard/MissionUploader"
-import { FileGallery } from "@/components/clientDashboard/FileGallery" // Add this import
+import { FileGallery, FileGalleryHandle } from "@/components/clientDashboard/FileGallery"
 
 export function MissionDashboard({ client }: { client: any }) {
   const [activeTab, setActiveTab] = useState("upload")
+  const fileGalleryRef = useRef<FileGalleryHandle>(null)
+  
+  // Function to refresh gallery when upload completes
+  const handleUploadComplete = () => {
+    fileGalleryRef.current?.refresh();
+    
+    // Optionally switch to gallery tab after upload
+    setActiveTab("gallery");
+  }
   
   return (
     <div className="space-y-6">
@@ -19,11 +28,17 @@ export function MissionDashboard({ client }: { client: any }) {
         </TabsList>
         
         <TabsContent value="upload" className="pt-4">
-          <MissionUploader clientId={client.id} />
+          <MissionUploader 
+            clientId={client.id} 
+            onUploadComplete={handleUploadComplete}
+          />
         </TabsContent>
         
         <TabsContent value="gallery" className="pt-4">
-          <FileGallery clientId={client.id} />
+          <FileGallery 
+            ref={fileGalleryRef}
+            clientId={client.id} 
+          />
         </TabsContent>
       </Tabs>
     </div>

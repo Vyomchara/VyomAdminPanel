@@ -2,21 +2,27 @@
 
 import { useSearchParams } from "next/navigation"
 import { useClient } from "@/hooks/useClient"
-// Import View type to ensure consistency
 import { View } from "@/types/types"
 import { Sidebar } from "@/components/dashboard/Sidebar"
 import { SummaryDashboard } from "@/components/clientDashboard/SummaryDashboard"
 import { Configuration } from "@/components/clientDashboard/Configuration"
 import { MissionUploader } from "@/components/clientDashboard/MissionUploader"
-import { FileGallery } from "@/components/clientDashboard/FileGallery" // Add this import
+import { FileGallery, FileGalleryHandle } from "@/components/clientDashboard/FileGallery" 
+import { useRef } from "react"
 
 export default function ClientPage() {
   const searchParams = useSearchParams()
   const id = searchParams.get('id')
+  const fileGalleryRef = useRef<FileGalleryHandle>(null)
   
   const {
-    client,droneAssignments,loading,currentView,setCurrentView,refreshClientData
-  } = useClient(id, {initialView: 'summary',redirectOnError: true})
+    client, droneAssignments, loading, currentView, setCurrentView, refreshClientData
+  } = useClient(id, {initialView: 'summary', redirectOnError: true})
+  
+  // Function to refresh the file gallery
+  const handleUploadComplete = () => {
+    fileGalleryRef.current?.refresh();
+  }
   
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
@@ -50,8 +56,14 @@ export default function ClientPage() {
         
         {currentView === 'missions' && (
           <div className="space-y-8">
-            <MissionUploader clientId={client?.id || ''} />
-            <FileGallery clientId={client?.id || ''} />
+            <MissionUploader 
+              clientId={client?.id || ''} 
+              onUploadComplete={handleUploadComplete} 
+            />
+            <FileGallery 
+              ref={fileGalleryRef}
+              clientId={client?.id || ''} 
+            />
           </div>
         )}
       </div>
