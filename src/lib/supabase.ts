@@ -70,8 +70,10 @@ export async function uploadFilesToSupabase(
  * IMPORTANT: For authentication only
  * DO NOT use this for database operations!
  */
-import { createClient as createBrowserClient } from "@/lib/supabase/client";
+// Remove any direct client-side exports
+// export const getSupabaseForAuth = () => {
+//   return createBrowserClient();
+// };
 
-export const getSupabaseForAuth = () => {
-  return createBrowserClient();
-};
+// Keep only server-side utility functions
+// All client-facing functions should be imported from server actions

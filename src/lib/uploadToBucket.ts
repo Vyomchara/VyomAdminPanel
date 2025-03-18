@@ -1,5 +1,9 @@
+"use server"; // Add this directive at the top
+
 import { createClient } from '@supabase/supabase-js';
 import { DropzoneOptions } from 'react-dropzone';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@/app_config';
+import { SUPABASE_SERVICE_KEY } from '@/server_config';
 
 /**
  * Creates required storage buckets in Supabase if they don't already exist
@@ -8,10 +12,10 @@ export async function createRequiredBuckets() {
   try {
     console.log("Creating required Supabase storage buckets...");
     
-    // Use SERVICE_ROLE key (admin privileges) instead of ANON key
+    // Use SERVICE_ROLE key (admin privileges) for bucket creation
     const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
+      SUPABASE_URL,
+      SUPABASE_SERVICE_KEY
     );
     
     // Create 'image' bucket with public access
@@ -56,10 +60,10 @@ export async function uploadFileToBucket(
   try {
     console.log(`Uploading file '${file.name}' to ${bucketName} bucket...`);
     
-    // Use the standard client for uploads
+    // Use the service key for server-side upload
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_KEY as string
+      SUPABASE_URL,
+      SUPABASE_SERVICE_KEY
     );
     
     // Generate a unique file path with client ID and timestamp
@@ -139,8 +143,6 @@ export async function uploadMultipleFiles(
 /**
  * Lists files for a specific client from a Supabase bucket
  */
-import { createClient as createBrowserClient } from "@/lib/supabase/client"; // Add proper import
-
 export async function getClientFiles(
   clientId: string, 
   bucketName: string = 'mission'
@@ -148,18 +150,16 @@ export async function getClientFiles(
   try {
     console.log(`Listing files for client ${clientId} from ${bucketName} bucket...`);
     
-    // Use your existing client implementation with proper import
-    const supabase = createBrowserClient();
-    console.log("Supabase client:", supabase);
-    
-    console.log(`Using client ${clientId} and bucket ${bucketName}`);
+    // Use the service key for server-side operations
+    const supabase = createClient(
+      SUPABASE_URL,
+      SUPABASE_SERVICE_KEY
+    );
     
     // List files from client's folder in the bucket
     const { data, error } = await supabase.storage
       .from(bucketName)
       .list(clientId);
-    
-    console.log("List result:", data, error); // Log the response from Supabase
     
     if (error) {
       console.error(`Error listing files from ${bucketName} bucket:`, error.message);
@@ -201,7 +201,6 @@ export async function getClientFiles(
 
 /**
  * Enhanced function to retrieve mission files with advanced options
- * 
  * @param clientId - The ID of the client whose files to retrieve
  * @param options - Configuration options for file retrieval
  * @returns Object containing success status, files array, and any error information
@@ -230,13 +229,16 @@ export async function getMissionFiles(
       return { success: false, error: "Client ID is required", files: [] };
     }
 
-    const supabase = createBrowserClient();
-    
+    const supabase = createClient(
+      SUPABASE_URL,
+      SUPABASE_SERVICE_KEY
+    );
+
     // List files from client's folder in the bucket
     const { data, error } = await supabase.storage
       .from(bucketName)
       .list(clientId, {
-        limit: limit,
+        limit: 100,
         sortBy: { column: sortBy === 'name' ? 'name' : 'created_at', order: sortDirection }
       });
     
@@ -257,7 +259,7 @@ export async function getMissionFiles(
         return fileTypes.includes(extension);
       });
     }
-    
+
     // Get public URLs and additional metadata for each file
     const filesWithUrls = await Promise.all(
       filteredData.map(async (fileObj) => {
@@ -302,7 +304,7 @@ export async function getMissionFiles(
         return sortDirection === 'asc' ? sizeA - sizeB : sizeB - sizeA;
       });
     }
-    
+
     return { 
       success: true, 
       files: filesWithUrls,
@@ -322,10 +324,8 @@ export async function getMissionFiles(
  */
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
-  
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  
   return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
@@ -334,7 +334,7 @@ type FileUploaderProps = {
   value: File[] | null;
   onValueChange: (files: File[] | null) => void;
   dropzoneOptions: DropzoneOptions;
-  fileType: "mission";  // Changed from "mission" | "image" to just "image"
+  fileType: "image";  // Changed from "mission" | "image" to just "image"
   clientId: string;
   onUploadComplete?: (urls: string[]) => void;
   buttonText?: string;

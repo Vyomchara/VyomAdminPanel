@@ -2,7 +2,6 @@
 
 import { useSearchParams } from "next/navigation"
 import { useClient } from "@/hooks/useClient"
-import { View } from "@/types/types"
 import { Sidebar } from "@/components/dashboard/Sidebar"
 import { SummaryDashboard } from "@/components/clientDashboard/SummaryDashboard"
 import { Configuration } from "@/components/clientDashboard/Configuration"
@@ -29,43 +28,47 @@ export default function ClientPage() {
   }
   
   return (
-    <div className="flex min-h-screen">
+    <div className="flex h-screen overflow-hidden">
+      {/* Fixed-width sidebar with full height */}
       <Sidebar 
-        className="w-64" 
+        className="w-64 h-full shrink-0" 
         clientName={client?.name || ''}
         onNavigate={(view) => setCurrentView(view)}
         currentView={currentView}
       />
       
-      <div className="flex-1 p-4">
-        {currentView === 'summary' && (
-          <SummaryDashboard 
-            client={client} 
-            droneAssignments={droneAssignments} 
-          />
-        )}
-        
-        {currentView === 'config' && (
-          <Configuration  
-            clientId={client?.id || ''} 
-            vm_ip={client?.vm_ip || ''}
-            vm_password={client?.vm_password || null}
-            onUpdate={refreshClientData}
-          />
-        )}
-        
-        {currentView === 'missions' && (
-          <div className="space-y-8">
-            <MissionUploader 
-              clientId={client?.id || ''} 
-              onUploadComplete={handleUploadComplete} 
+      {/* Main content area with scrolling contained within */}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto scrollbar-hide p-4">
+          {currentView === 'summary' && (
+            <SummaryDashboard 
+              client={client} 
+              droneAssignments={droneAssignments} 
             />
-            <FileGallery 
-              ref={fileGalleryRef}
+          )}
+          
+          {currentView === 'config' && (
+            <Configuration  
               clientId={client?.id || ''} 
+              vm_ip={client?.vm_ip || ''}
+              vm_password={client?.vm_password || null}
+              onUpdate={refreshClientData}
             />
-          </div>
-        )}
+          )}
+          
+          {currentView === 'missions' && (
+            <div className="space-y-8">
+              <MissionUploader 
+                clientId={client?.id || ''} 
+                onUploadComplete={handleUploadComplete} 
+              />
+              <FileGallery 
+                ref={fileGalleryRef}
+                clientId={client?.id || ''} 
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

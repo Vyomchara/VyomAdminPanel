@@ -8,8 +8,7 @@ import { Input } from "@/components/ui/input"
 import { RefreshCw, FileType2, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { MissionFilesTable } from "./MissionFilesTable"
-import { createClient } from "@/lib/supabase/client"
-import { getMissionFilesWithSignedUrls, deleteFileFromStorage } from "@/app/action"
+import { listClientFiles, deleteFile, createSignedUrl } from "@/app/action"
 
 // Define a ref handle type to expose the refresh method
 export interface FileGalleryHandle {
@@ -49,27 +48,35 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
   // Function to load files from server
   const loadFiles = async () => {
     if (!clientId) {
+      console.error("FileGallery: Client ID is missing");
       toast.error("Client ID is missing")
       return
     }
     
+    console.log(`FileGallery: Starting to load files for client ${clientId}`);
     setIsLoading(true)
     
     try {
       // Use the server action to get files with signed URLs
-      const response = await getMissionFilesWithSignedUrls(clientId)
+      console.log(`FileGallery: Calling listClientFiles with params:`, {
+        clientId, fileType, sortBy, sortDirection
+      });
+      
+      const response = await listClientFiles(clientId, fileType, sortBy, sortDirection);
+      console.log(`FileGallery: Got response from listClientFiles:`, response);
       
       if (response.success) {
         // Sort the files according to current sort settings
-        const sortedFiles = sortFiles(response.files, sortBy, sortDirection)
+        const sortedFiles = sortFiles(response.files, sortBy, sortDirection);
+        console.log(`FileGallery: Sorted ${sortedFiles.length} files successfully`);
         setFiles(sortedFiles)
       } else {
-        console.error("Error loading files:", response.error)
+        console.error("FileGallery: Error loading files:", response.error)
         toast.error(`Failed to load files: ${response.error}`)
         setFiles([])
       }
     } catch (error) {
-      console.error("Error:", error)
+      console.error("FileGallery Error:", error)
       toast.error(`Error loading files: ${error instanceof Error ? error.message : 'Unknown error'}`)
       setFiles([])
     } finally {
@@ -108,9 +115,9 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
       }
       
       // Use server action to delete file with admin permissions
-      const result = await deleteFileFromStorage(
+      const result = await deleteFile(
         file.path, 
-        file.bucketName || 'mission'
+        //'mission'
       );
       
       if (!result.success) {
@@ -138,18 +145,15 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
         return true
       }
       
-      // As a fallback, generate a new signed URL
-      const supabase = createClient()
-      const { data, error } = await supabase.storage
-        .from(file.bucketName)
-        .createSignedUrl(file.path, 120) // 2 minutes expiration
+      // Use server action instead of direct Supabase access
+      const response = await createSignedUrl(file.path, file.bucketName, 120);
       
-      if (error) {
-        throw new Error(error.message)
+      if (!response.success) {
+        throw new Error(response.error || "Failed to create signed URL");
       }
       
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, "_blank")
+      if (response.url) {
+        window.open(response.url, "_blank")
         return true
       } else {
         throw new Error("Could not access file")
@@ -163,7 +167,12 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">Mission Files</h2>
+        <h2 className="text-xl font-bold">
+          Mission Files
+          <span className="ml-2 text-sm font-normal text-muted-foreground">
+            (mission bucket)
+          </span>
+        </h2>
         <Button variant="outline" size="sm" onClick={loadFiles}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh

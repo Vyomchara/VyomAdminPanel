@@ -7,7 +7,9 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/drizzle/db"
 import { CreateClient } from "@/lib/supabase/server"
 import { v4 as uuid } from "uuid"
-import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_URL } from '@/app_config'
+import { SUPABASE_SERVICE_KEY } from '@/server_config'
+import { getMissionFiles } from "@/lib/uploadToBucket"
 
 // Remove auth client - using middleware instead
 // const auth = CreateClient();
@@ -340,90 +342,6 @@ export async function getClientFilesAction(clientId: string, bucketName: string)
   }
 }
 
-/**
- * Retrieves mission files for a client with secure signed URLs
- */
-export async function getMissionFilesWithSignedUrls(clientId: string) {
-  try {
-    // Create Supabase client with service role key for admin access
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_KEY! // Use service role key only on the server side
-    );
-
-    // First list all files in the client's folder to get complete information
-    const { data: storageFiles, error: storageError } = await supabase.storage
-      .from("mission")
-      .list(clientId);
-    
-    if (storageError) {
-      console.error("Error listing files from storage:", storageError);
-      return { success: false, error: storageError.message, files: [] };
-    }
-
-    if (!storageFiles || storageFiles.length === 0) {
-      return { success: true, files: [] };
-    }
-
-    // Generate signed URLs and process metadata for each file
-    const filesWithSignedUrls = await Promise.all(
-      storageFiles.map(async (file) => {
-        const filePath = `${clientId}/${file.name}`;
-        
-        // Generate a signed URL with 1-hour expiry
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from("mission")
-          .createSignedUrl(filePath, 60 * 60);
-
-        if (signedUrlError) {
-          console.error(`Error creating signed URL for ${file.name}:`, signedUrlError);
-          return null;
-        }
-
-        // Extract file extension
-        const extension = file.name.split('.').pop()?.toLowerCase() || '';
-        
-        // Extract creation timestamp from filename if present
-        const timestampMatch = file.name.match(/^(\d+)_/);
-        const createdAt = timestampMatch 
-          ? new Date(parseInt(timestampMatch[1]))
-          : new Date(file.created_at || Date.now());
-        
-        // Format size for display
-        const fileSize = file.metadata?.size || 0;
-        const sizeFormatted = formatFileSize(fileSize);
-        
-        return {
-          name: file.name,
-          url: signedUrlData.signedUrl,
-          path: filePath,
-          bucketName: "mission",
-          extension,
-          createdAt,
-          sizeFormatted,
-          metadata: file.metadata,
-          id: file.id
-        };
-      })
-    );
-
-    // Filter out any null values from failed signed URL generation
-    const validFiles = filesWithSignedUrls.filter(Boolean);
-    
-    return { 
-      success: true, 
-      files: validFiles,
-      totalCount: validFiles.length
-    };
-  } catch (error) {
-    console.error("Error in getMissionFilesWithSignedUrls:", error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : "Unknown error occurred",
-      files: [] 
-    };
-  }
-}
 
 /**
  * Helper function to format file size for display
@@ -445,10 +363,7 @@ export async function deleteFileFromStorage(filePath: string, bucketName: string
     console.log(`[SERVER] Deleting file from ${bucketName}: ${filePath}`);
 
     // Create server-side Supabase client with admin privileges
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_KEY! // Fixed: Use the correct environment variable name
-    );
+    const supabase = await CreateClient();
 
     if (!filePath) {
       return { success: false, message: "File path is required" };
@@ -481,4 +396,159 @@ export async function deleteFileFromStorage(filePath: string, bucketName: string
       message: error instanceof Error ? error.message : "Unknown error occurred"
     };
   }
+}
+
+/**
+ * Upload client files (mission, images) to appropriate storage
+ */
+export async function uploadClientFiles(
+  files: File[],
+  clientId: string,
+  fileType: 'mission' | 'image'
+): Promise<{ urls: string[]; errors: Error[] }> {
+  const urls: string[] = [];
+  const errors: Error[] = [];
+  
+  for (const file of files) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await uploadFileToServer(formData, clientId, fileType);
+      
+      if (response.success && response.url) {
+        urls.push(response.url);
+      } else {
+        errors.push(new Error(response.message || "Upload failed"));
+      }
+    } catch (error) {
+      errors.push(error instanceof Error ? error : new Error("Unknown upload error"));
+    }
+  }
+  
+  return { urls, errors };
+}
+
+/**
+ * List client files with filtering and sorting capabilities
+ */
+export async function listClientFiles(
+  clientId: string,
+  fileType: string = 'all',
+  sortBy: 'name' | 'created' | 'size' = 'name',
+  sortDirection: 'asc' | 'desc' = 'asc'
+) {
+  console.log(`[SERVER] listClientFiles: Starting for client ${clientId}, fileType: ${fileType}`);
+  
+  try {
+    // Fetch files directly using client ID
+    console.log(`[SERVER] listClientFiles: Fetching files for ${clientId}`);
+    const response = await getMissionFiles(clientId);
+    
+    console.log(`[SERVER] listClientFiles: Got response:`, 
+      { success: response.success, fileCount: response.files?.length || 0 });
+    
+    if (!response.success) {
+      console.error(`[SERVER] listClientFiles: Error from getMissionFilesWithSignedUrls:`, response.error);
+      return response;
+    }
+    
+    let files = response.files || [];
+    
+    // Apply file type filter if specified
+    if (fileType !== 'all') {
+      const preFilterCount = files.length;
+      files = files.filter(file => {
+        if (!file) return false;
+        const extension = file.extension?.toLowerCase();
+        return extension === fileType.toLowerCase();
+      });
+      console.log(`[SERVER] listClientFiles: Filtered by type '${fileType}': ${preFilterCount} → ${files.length} files`);
+    }
+    
+    // Sort files as requested
+    files = files.sort((a, b) => {
+      if (sortBy === 'name') {
+        if (a && b) {
+          return sortDirection === 'asc'
+            ? a.name.localeCompare(b.name)
+            : b.name.localeCompare(a.name);
+        }
+      }
+      else if (sortBy === 'created') {
+        if (a && b) {
+          const dateA = new Date(a.createdAt).getTime();
+          const dateB = new Date(b.createdAt).getTime();
+          return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+        }
+      }
+      else if (sortBy === 'size') {
+        if (a && b) {
+          const sizeA = a.metadata?.size || 0;
+          const sizeB = b.metadata?.size || 0;
+          return sortDirection === 'asc' ? sizeA - sizeB : sizeB - sizeA;
+        }
+      }
+      return 0;
+    });
+    
+    console.log(`[SERVER] listClientFiles: Returning ${files.length} sorted files`);
+    
+    return { 
+      success: true, 
+      files,
+      error: null
+    };
+  } catch (error) {
+    console.error("[SERVER] Error listing client files:", error);
+    return { 
+      success: false, 
+      files: [],
+      error: error instanceof Error ? error.message : "Unknown error"
+    };
+  }
+}
+
+/**
+ * Create a signed URL for file access
+ */
+export async function createSignedUrl(
+  filePath: string,
+  bucketName: string = 'mission',
+  expirySeconds: number = 60 * 60 // 1 hour default
+) {
+  try {
+    const supabase = await CreateClient();
+    
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .createSignedUrl(filePath, expirySeconds);
+    
+    if (error) {
+      throw error;
+    }
+    
+    return { 
+      success: true,
+      url: data.signedUrl,
+      error: null
+    };
+  } catch (error) {
+    console.error("Error creating signed URL:", error);
+    return { 
+      success: false, 
+      url: null,
+      error: error instanceof Error ? error.message : "Unknown error"
+    };
+  }
+}
+
+/**
+ * Delete a file from storage
+ */
+export async function deleteFile(
+  filePath: string,
+  
+) {
+  return deleteFileFromStorage(filePath, 'mission');
 }

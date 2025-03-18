@@ -11,8 +11,7 @@ import {
   MediaList, 
   MediaItem 
 } from "@/components/clientDashboard/MediaUploader"
-import { saveFilesToClient } from "@/app/action";
-import { uploadFilesToSupabase } from "@/lib/supabase";
+import { saveFilesToClient, uploadClientFiles } from "@/app/action"; // Correct import
 
 // Add onUploadComplete callback prop
 interface MissionUploaderProps {
@@ -33,8 +32,8 @@ export function MissionUploader({ clientId, onUploadComplete }: MissionUploaderP
     setIsUploading(true);
     
     try {
-      // Use the uploadFilesToSupabase utility to upload the files
-      const { urls, errors } = await uploadFilesToSupabase(
+      // Now this import should work properly
+      const { urls, errors } = await uploadClientFiles(
         files,
         clientId,
         "mission"
@@ -78,7 +77,7 @@ export function MissionUploader({ clientId, onUploadComplete }: MissionUploaderP
         // Clear files after successful upload
         setFiles(null);
       }
-    } catch (error) {
+    } catch (error: any) { // Type the error parameter
       toast.error(`Upload failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsUploading(false);

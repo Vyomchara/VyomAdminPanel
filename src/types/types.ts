@@ -31,6 +31,7 @@ export interface PageProps {
 // Props for Mission Uploader component
 export interface MissionUploaderProps {
   clientId: string;
+  onUploadComplete?: (urls: string[]) => void;
 }
 
 // Response type for VM settings update

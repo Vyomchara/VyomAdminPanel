@@ -18,28 +18,34 @@ export function MissionDashboard({ client }: { client: any }) {
   }
   
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Mission Management</h1>
+    <div className="flex flex-col h-[calc(100vh-120px)]">
+      <h1 className="text-2xl font-bold mb-6">Mission Management</h1>
       
-      <Tabs defaultValue="upload" value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="upload" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="upload">Upload Missions</TabsTrigger>
           <TabsTrigger value="gallery">Mission Gallery</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="upload" className="pt-4">
-          <MissionUploader 
-            clientId={client.id} 
-            onUploadComplete={handleUploadComplete}
-          />
-        </TabsContent>
-        
-        <TabsContent value="gallery" className="pt-4">
-          <FileGallery 
-            ref={fileGalleryRef}
-            clientId={client.id} 
-          />
-        </TabsContent>
+        <div className="flex-1 overflow-hidden mt-4">
+          <TabsContent value="upload" className="h-full data-[state=active]:flex data-[state=active]:flex-col">
+            <div className="flex-1 overflow-y-auto scrollbar-hide pr-2">
+              <MissionUploader 
+                clientId={client.id} 
+                onUploadComplete={handleUploadComplete}
+              />
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="gallery" className="h-full data-[state=active]:flex data-[state=active]:flex-col">
+            <div className="flex-1 overflow-y-auto scrollbar-hide pr-2">
+              <FileGallery 
+                ref={fileGalleryRef}
+                clientId={client.id} 
+              />
+            </div>
+          </TabsContent>
+        </div>
       </Tabs>
     </div>
   )
