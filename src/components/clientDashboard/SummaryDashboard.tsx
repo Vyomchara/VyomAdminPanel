@@ -2,7 +2,7 @@
 
 import { DroneTable } from "./DroneTable"
 import { toast } from "sonner"
-import { Mail, MapPin, Server, Trash2, Edit2, Plus, Eye, EyeOff, Lock } from "lucide-react" // Added Plus, Eye, and EyeOff icons
+import { Mail, MapPin, Server, Trash2, Edit2, Plus, Eye, EyeOff, Lock, Download, Upload } from "lucide-react" // Added Plus, Eye, EyeOff, Download, and Upload icons
 import Image from "next/image"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
@@ -31,7 +31,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox" // Added Checkbox import
-import { updateClientAction, deleteClientAction } from "@/app/action"
+import { updateClientAction, deleteClientAction, checkForClientPemFile, createSignedUrl } from "@/app/action" // Import PEM file check function
 
 export function SummaryDashboard({ client, droneAssignments }: { client: any, droneAssignments: any }) {
   const { theme, resolvedTheme } = useTheme()
@@ -51,6 +51,63 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
   const [showVmIp, setShowVmIp] = useState(false) // Added state to track IP visibility
   const [vmConfigDialogOpen, setVmConfigDialogOpen] = useState(false) // Added state to control VM config dialog
   const [showVmPassword, setShowVmPassword] = useState(false) // Add this for password visibility
+  
+  // Add state for PEM file
+  const [pemFileInfo, setPemFileInfo] = useState<{
+    exists: boolean,
+    loading: boolean,
+    url?: string
+  }>({
+    exists: false,
+    loading: true
+  })
+  
+  // Check for PEM file when component mounts
+  useEffect(() => {
+    async function checkPemFile() {
+      if (!client?.id) return
+      
+      try {
+        setPemFileInfo(prev => ({ ...prev, loading: true }))
+        const result = await checkForClientPemFile(client.id)
+        
+        setPemFileInfo({
+          exists: result.success && result.fileExists,
+          loading: false,
+          url: result.fileUrl
+        })
+      } catch (error) {
+        console.error("Error checking for PEM file:", error)
+        setPemFileInfo({
+          exists: false,
+          loading: false
+        })
+      }
+    }
+    
+    checkPemFile()
+  }, [client?.id])
+  
+  // Function to handle PEM file download
+  const handleDownloadPem = async () => {
+    if (!client?.id) return
+    
+    try {
+      toast.loading("Preparing download link")
+      const result = await createSignedUrl(client.id)
+      
+      if (!result.success || !result.url) {
+        throw new Error(result.error ?? "Download URL not available")
+      }
+      
+      window.location.href = result.url
+      toast.success("Download started")
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Failed to download PEM file: ${errorMessage}`)
+      console.error("Error downloading PEM file:", error)
+    }
+  }
   
   // Effect for countdown timer
   useEffect(() => {
@@ -410,6 +467,35 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
                         ) : (
                           <Eye className="h-3.5 w-3.5" />
                         )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* PEM File Download Section */}
+              <div className="flex items-center">
+                <div className="bg-gray-100 dark:bg-gray-900/20 p-2 rounded-full mr-3">
+                  <Download className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground">PEM File</p>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm font-medium">
+                      {pemFileInfo.loading 
+                        ? 'Checking...' 
+                        : pemFileInfo.exists 
+                          ? 'Available' 
+                          : 'Not available'}
+                    </p>
+                    {pemFileInfo.exists && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0" 
+                        onClick={handleDownloadPem}
+                      >
+                        <Download className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>

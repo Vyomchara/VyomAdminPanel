@@ -5,9 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Network, Server, Loader2, Eye, EyeOff, Lock } from "lucide-react"
+import { Network, Server, Loader2, Eye, EyeOff, Lock, Upload } from "lucide-react"
 import { toast } from "sonner"
-import { getClientDetails, updateClientVMIP, updateClientVMIPAndPassword } from "@/app/action"
+import { getClientDetails, updateClientVMIP, updateClientVMIPAndPassword, checkForClientPemFile, uploadPemFile, deleteClientPemFile } from "@/app/action"
 
 interface ConfigurationProps {
   clientId: string
@@ -226,8 +226,34 @@ function VMConfigForm({ clientId, currentIP, onUpdate }: {
 }) {
   const [vmIp, setVmIp] = useState(currentIP || '')
   const [vmPassword, setVmPassword] = useState('')
-  const [usePasswordAuth, setUsePasswordAuth] = useState(false)
+  const [authType, setAuthType] = useState<'password' | 'pemfile'>('password')
+  const [pemFile, setPemFile] = useState<File | null>(null)
+  const [existingPemFile, setExistingPemFile] = useState<string | null>(null)
+  const [isCheckingPem, setIsCheckingPem] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  
+  // Check if PEM file exists for this client
+  useEffect(() => {
+    async function checkForExistingPemFile() {
+      if (!clientId) return;
+      
+      setIsCheckingPem(true);
+      try {
+        const response = await checkForClientPemFile(clientId);
+        if (response.success && response.fileUrl) {
+          setExistingPemFile(response.fileUrl);
+          // If PEM exists, default to PEM auth type
+          setAuthType('pemfile');
+        }
+      } catch (error) {
+        console.error("Error checking for PEM file:", error);
+      } finally {
+        setIsCheckingPem(false);
+      }
+    }
+    
+    checkForExistingPemFile();
+  }, [clientId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -236,27 +262,84 @@ function VMConfigForm({ clientId, currentIP, onUpdate }: {
       return
     }
 
+    // Validate auth type-specific requirements
+    if (authType === 'password' && !vmPassword.trim()) {
+      toast.error("VM password is required when using password authentication")
+      return
+    }
+    
+    if (authType === 'pemfile' && !existingPemFile && !pemFile) {
+      toast.error("Please upload a PEM file for key-based authentication")
+      return
+    }
+
     setIsUpdating(true)
 
     try {
-      // Only send password if password authentication is enabled
-      const passwordToSend = usePasswordAuth ? vmPassword : null
-      const result = await updateClientVMSettings(clientId, vmIp, passwordToSend)
+      let result;
+      
+      if (authType === 'password') {
+        // Password authentication flow
+        result = await updateClientVMSettings(clientId, vmIp, vmPassword);
+      } else {
+        // PEM file authentication flow
+        if (pemFile) {
+          // If the user has selected a new PEM file, upload it
+          const uploadResult = await uploadPemFile(clientId, pemFile);
+          if (!uploadResult.success) {
+            throw new Error(uploadResult.message || "Failed to upload PEM file");
+          }
+        }
+        
+        // Update VM IP without password
+        result = await updateClientVMIP(clientId, { vm_ip: vmIp });
+      }
 
       if (result.success) {
-        // This is critical - wait for the onUpdate to complete
-        await onUpdate()
-        toast.success("VM settings updated successfully")
+        await onUpdate();
+        toast.success("VM settings updated successfully");
       } else {
-        throw new Error(result.error || "Failed to update VM settings")
+        throw new Error((result as any).error || (result as any).message || "Failed to update VM settings");
       }
     } catch (error) {
-      console.error("Error updating VM settings:", error)
-      toast.error("Failed to update VM settings")
+      console.error("Error updating VM settings:", error);
+      toast.error(`Failed to update VM settings: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      setIsUpdating(false)
+      setIsUpdating(false);
     }
   }
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      // Validate file type/extension
+      const file = files[0];
+      if (file.name.endsWith('.pem') || file.type === 'application/x-pem-file') {
+        setPemFile(file);
+      } else {
+        toast.error("Please select a valid PEM file (.pem extension)");
+        e.target.value = ''; // Clear selection
+      }
+    }
+  };
+  
+  const handleDeletePemFile = async () => {
+    if (!clientId || !existingPemFile) return;
+    
+    try {
+      const result = await deleteClientPemFile(clientId);
+      if (result.success) {
+        setExistingPemFile(null);
+        setPemFile(null);
+        toast.success("PEM file deleted successfully");
+      } else {
+        toast.error(`Failed to delete PEM file: ${result.message}`);
+      }
+    } catch (error) {
+      console.error("Error deleting PEM file:", error);
+      toast.error(`Error deleting PEM file: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
 
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
@@ -270,20 +353,38 @@ function VMConfigForm({ clientId, currentIP, onUpdate }: {
         />
       </div>
 
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          id="use_password_auth"
-          checked={usePasswordAuth}
-          onChange={(e) => setUsePasswordAuth(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-        />
-        <Label htmlFor="use_password_auth" className="text-sm font-normal">
-          Enable password authentication
-        </Label>
+      <div className="space-y-3">
+        <div className="text-sm font-medium">Authentication Method</div>
+        <div className="flex flex-col space-y-2">
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="auth_password"
+              checked={authType === 'password'}
+              onChange={() => setAuthType('password')}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="auth_password" className="text-sm font-normal">
+              Password authentication
+            </Label>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="auth_pemfile"
+              checked={authType === 'pemfile'}
+              onChange={() => setAuthType('pemfile')}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            <Label htmlFor="auth_pemfile" className="text-sm font-normal">
+              Key-based authentication (PEM file)
+            </Label>
+          </div>
+        </div>
       </div>
 
-      {usePasswordAuth && (
+      {authType === 'password' && (
         <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-1 duration-300">
           <Label htmlFor="vm_password">VM Password</Label>
           <Input
@@ -293,6 +394,68 @@ function VMConfigForm({ clientId, currentIP, onUpdate }: {
             onChange={(e) => setVmPassword(e.target.value)}
             placeholder="••••••••"
           />
+        </div>
+      )}
+      
+      {authType === 'pemfile' && (
+        <div className="space-y-3 pt-2 animate-in fade-in slide-in-from-top-1 duration-300">
+          <Label>PEM File for SSH Authentication</Label>
+          
+          {isCheckingPem ? (
+            <div className="flex items-center justify-center py-3">
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <span className="text-sm text-muted-foreground">Checking for existing PEM file...</span>
+            </div>
+          ) : existingPemFile ? (
+            <div className="flex items-center justify-between p-3 bg-muted rounded-md">
+              <div className="flex items-center">
+                <Lock className="h-4 w-4 mr-2 text-green-600" />
+                <span className="text-sm font-medium">PEM file uploaded</span>
+              </div>
+              <Button 
+                type="button" 
+                variant="destructive" 
+                size="sm"
+                onClick={handleDeletePemFile}
+              >
+                Delete
+              </Button>
+            </div>
+          ) : pemFile ? (
+            <div className="flex items-center justify-between p-3 bg-muted rounded-md">
+              <div className="flex items-center">
+                <Lock className="h-4 w-4 mr-2 text-amber-600" />
+                <span className="text-sm">{pemFile.name}</span>
+              </div>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setPemFile(null)}
+              >
+                Clear
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-md py-4">
+              <label htmlFor="pemfile-upload" className="cursor-pointer flex flex-col items-center">
+                <Upload className="h-5 w-5 mb-1 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Click to upload PEM file</span>
+                <input
+                  id="pemfile-upload"
+                  type="file"
+                  className="hidden"
+                  accept=".pem"
+                  onChange={handleFileChange}
+                />
+              </label>
+            </div>
+          )}
+          
+          <p className="text-xs text-muted-foreground">
+            Upload the private key file (.pem) for SSH authentication.
+            {existingPemFile && " To change the key, delete the current one first."}
+          </p>
         </div>
       )}
 

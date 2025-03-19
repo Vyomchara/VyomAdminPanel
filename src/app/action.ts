@@ -552,3 +552,149 @@ export async function deleteFile(
 ) {
   return deleteFileFromStorage(filePath, 'mission');
 }
+
+/**
+ * Upload a PEM file for a client's VM SSH authentication
+ */
+export async function uploadPemFile(clientId: string, file: File): Promise<{ success: boolean; fileUrl?: string; message?: string }> {
+  'use server';
+  
+  try {
+    if (!file) {
+      return { success: false, message: "No PEM file provided" };
+    }
+    
+    // Check if file has .pem extension
+    if (!file.name.endsWith('.pem')) {
+      return { success: false, message: "Invalid file format. Please upload a .pem file" };
+    }
+    
+    // Check if a PEM file already exists
+    const checkResult = await checkForClientPemFile(clientId);
+    if (checkResult.success && checkResult.fileExists) {
+      return { success: false, message: "A PEM file already exists. Please delete it first before uploading a new one." };
+    }
+    
+    // Create FormData for the upload
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Use uploadFileToServer with the pemfile bucket
+    const uploadResult = await uploadFileToServer(formData, 'pemfile', `${clientId}/vm`);
+    
+    return uploadResult;
+  } catch (error) {
+    console.error("Error uploading PEM file:", error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : "Unknown error occurred" 
+    };
+  }
+}
+
+/**
+ * Check if a PEM file exists for a client
+ */
+export async function checkForClientPemFile(clientId: string): Promise<{ 
+  success: boolean; 
+  fileExists: boolean;
+  fileUrl?: string;
+  message?: string;
+}> {
+  'use server';
+  
+  try {
+    const supabase = await CreateClient();
+    
+    // Check if the pemfile bucket exists, create if not
+    const { data: buckets } = await supabase.storage.listBuckets();
+    if (!buckets?.some(b => b.name === 'pemfile')) {
+      await supabase.storage.createBucket('pemfile', {
+        public: false,  // PEM files should be private
+        fileSizeLimit: 5242880,  // 5MB limit for key files
+      });
+    }
+    
+    // Check for files in the client's VM folder
+    const { data, error } = await supabase.storage
+      .from('pemfile')
+      .list(`${clientId}/vm`);
+      
+    if (error) {
+      // If the error is "not found", the folder doesn't exist yet, which is fine
+      if (error.message.includes('not found')) {
+        return { success: true, fileExists: false };
+      }
+      
+      return { success: false, fileExists: false, message: error.message };
+    }
+    
+    // Check if any .pem files exist
+    const pemFile = data?.find(file => file.name.endsWith('.pem'));
+    if (!pemFile) {
+      return { success: true, fileExists: false };
+    }
+    
+    // Create a signed URL for the PEM file (short-lived)
+    const { data: urlData } = await supabase.storage
+      .from('pemfile')
+      .createSignedUrl(`${clientId}/vm/${pemFile.name}`, 60); // 1 minute expiry
+      
+    return { 
+      success: true, 
+      fileExists: true,
+      fileUrl: urlData?.signedUrl
+    };
+  } catch (error) {
+    console.error("Error checking for PEM file:", error);
+    return { 
+      success: false, 
+      fileExists: false,
+      message: error instanceof Error ? error.message : "Unknown error occurred" 
+    };
+  }
+}
+
+/**
+ * Delete a client's PEM file
+ */
+export async function deleteClientPemFile(clientId: string): Promise<{ success: boolean; message?: string }> {
+  'use server';
+  
+  try {
+    const supabase = await CreateClient();
+    
+    // List files to find the PEM file
+    const { data, error: listError } = await supabase.storage
+      .from('pemfile')
+      .list(`${clientId}/vm`);
+      
+    if (listError) {
+      return { success: false, message: listError.message };
+    }
+    
+    // Find PEM files
+    const pemFiles = data?.filter(file => file.name.endsWith('.pem')) || [];
+    if (pemFiles.length === 0) {
+      return { success: false, message: "No PEM file found" };
+    }
+    
+    // Delete the PEM files (usually there should be only one)
+    const filesToDelete = pemFiles.map(file => `${clientId}/vm/${file.name}`);
+    const { error: deleteError } = await supabase.storage
+      .from('pemfile')
+      .remove(filesToDelete);
+      
+    if (deleteError) {
+      return { success: false, message: deleteError.message };
+    }
+    
+    return { success: true, message: "PEM file deleted successfully" };
+  } catch (error) {
+    console.error("Error deleting PEM file:", error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : "Unknown error occurred" 
+    };
+  }
+}
