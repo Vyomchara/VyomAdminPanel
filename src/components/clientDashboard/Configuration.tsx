@@ -5,9 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Network, Server, Loader2, Eye, EyeOff, Lock, Upload } from "lucide-react"
+import { Network, Server, Loader2, Eye, EyeOff, Lock, Upload, Download } from "lucide-react"
 import { toast } from "sonner"
-import { getClientDetails, updateClientVMIP, updateClientVMIPAndPassword, checkForClientPemFile, uploadPemFile, deleteClientPemFile } from "@/app/action"
+import { getClientDetails, updateClientVMIP, updateClientVMIPAndPassword, checkForClientPemFile, uploadPemFile, deleteClientPemFile, createSignedUrl } from "@/app/action"
 
 interface ConfigurationProps {
   clientId: string
@@ -28,6 +28,62 @@ export function Configuration({
   const [isDialogOpen, setIsDialogOpen] = useState(!vm_ip) // Auto-open if VM IP is not set
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [showVmIp, setShowVmIp] = useState(false) // Add this state for IP visibility toggle
+  // Add state for PEM file
+  const [pemFileInfo, setPemFileInfo] = useState<{
+    exists: boolean,
+    loading: boolean,
+    url?: string
+  }>({
+    exists: false,
+    loading: true
+  })
+  
+  // Check for PEM file when component mounts
+  useEffect(() => {
+    async function checkPemFile() {
+      if (!clientId) return
+      
+      try {
+        setPemFileInfo(prev => ({ ...prev, loading: true }))
+        const result = await checkForClientPemFile(clientId)
+        
+        setPemFileInfo({
+          exists: result.success && result.fileExists,
+          loading: false,
+          url: result.fileUrl
+        })
+      } catch (error) {
+        console.error("Error checking for PEM file:", error)
+        setPemFileInfo({
+          exists: false,
+          loading: false
+        })
+      }
+    }
+    
+    checkPemFile()
+  }, [clientId])
+  
+  // Function to handle PEM file download
+  const handleDownloadPem = async () => {
+    if (!clientId) return
+    
+    try {
+      toast.loading("Preparing download link")
+      const result = await createSignedUrl(clientId)
+      
+      if (!result.success || !result.url) {
+        throw new Error(result.error ?? "Download URL not available")
+      }
+      
+      window.location.href = result.url
+      toast.success("Download started")
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Failed to download PEM file: ${errorMessage}`)
+      console.error("Error downloading PEM file:", error)
+    }
+  }
 
   // Function to refresh client data
   const refreshData = async () => {
@@ -121,32 +177,57 @@ export function Configuration({
             </div>
           </div>
 
-          {/* VM Password Field with colorized background */}
+          {/* Authentication Field - Updated to show either password or PEM file */}
           <div className="flex items-center">
             <div className="bg-amber-100 dark:bg-amber-900/20 p-2 rounded-full mr-3">
               <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
             </div>
             <div className="flex-1">
-              <p className="text-xs text-muted-foreground">VM Password</p>
+              <p className="text-xs text-muted-foreground">Authentication</p>
               <div className="flex items-center">
-                <p className="text-sm font-medium mr-2">
-                  {vmPassword
-                    ? (showVmPassword ? vmPassword : '••••••••')
-                    : 'Not configured'}
-                </p>
-                {vmPassword && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-6 w-6 p-0" 
-                    onClick={() => setShowVmPassword(!showVmPassword)}
-                  >
-                    {showVmPassword ? (
-                      <EyeOff className="h-3.5 w-3.5" />
-                    ) : (
-                      <Eye className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
+                {vmPassword ? (
+                  // Password authentication
+                  <>
+                    <p className="text-sm font-medium mr-2">
+                      {showVmPassword ? vmPassword : '••••••••'}
+                    </p>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 w-6 p-0" 
+                      onClick={() => setShowVmPassword(!showVmPassword)}
+                    >
+                      {showVmPassword ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </>
+                ) : pemFileInfo.exists ? (
+                  // PEM file authentication - removed color styling
+                  <>
+                    <p className="text-sm font-medium mr-2">
+                      PEM File
+                    </p>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 w-6 p-0" 
+                      onClick={handleDownloadPem}
+                      title="Download PEM file"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                ) : pemFileInfo.loading ? (
+                  // Loading state
+                  <p className="text-sm font-medium">
+                    <span className="text-muted-foreground">Checking...</span>
+                  </p>
+                ) : (
+                  // Not configured
+                  <p className="text-sm font-medium">Not configured</p>
                 )}
               </div>
             </div>

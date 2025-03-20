@@ -448,55 +448,52 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
                 <div className="flex-1">
                   <p className="text-xs text-muted-foreground">Authentication</p>
                   <div className="flex items-center space-x-2">
-                    <p className="text-sm font-medium">
-                      {client?.vm_password 
-                        ? (showVmPassword ? client.vm_password : '•••••••••••')
-                        : client?.vm_ip 
-                          ? <span className="text-muted-foreground">Key-based access</span>
-                          : 'Not configured'}
-                    </p>
-                    {client?.vm_password && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 w-6 p-0" 
-                        onClick={() => setShowVmPassword(!showVmPassword)}
-                      >
-                        {showVmPassword ? (
-                          <EyeOff className="h-3.5 w-3.5" />
-                        ) : (
-                          <Eye className="h-3.5 w-3.5" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              {/* PEM File Download Section */}
-              <div className="flex items-center">
-                <div className="bg-gray-100 dark:bg-gray-900/20 p-2 rounded-full mr-3">
-                  <Download className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs text-muted-foreground">PEM File</p>
-                  <div className="flex items-center space-x-2">
-                    <p className="text-sm font-medium">
-                      {pemFileInfo.loading 
-                        ? 'Checking...' 
-                        : pemFileInfo.exists 
-                          ? 'Available' 
-                          : 'Not available'}
-                    </p>
-                    {pemFileInfo.exists && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 w-6 p-0" 
-                        onClick={handleDownloadPem}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </Button>
+                    {client?.vm_password ? (
+                      // Password authentication
+                      <>
+                        <p className="text-sm font-medium">
+                          {showVmPassword ? client.vm_password : '•••••••••••'}
+                        </p>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0" 
+                          onClick={() => setShowVmPassword(!showVmPassword)}
+                        >
+                          {showVmPassword ? (
+                            <EyeOff className="h-3.5 w-3.5" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </>
+                    ) : pemFileInfo.exists ? (
+                      // PEM file authentication - removed color styling
+                      <>
+                        <p className="text-sm font-medium mr-2">
+                          PEM File
+                        </p>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 w-6 p-0" 
+                          onClick={handleDownloadPem}
+                          title="Download PEM file"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    ) : pemFileInfo.loading ? (
+                      // Loading state
+                      <p className="text-sm font-medium">
+                        <span className="text-muted-foreground">Checking...</span>
+                      </p>
+                    ) : client?.vm_ip ? (
+                      // No authentication configured
+                      <span className="text-sm font-medium text-muted-foreground">Not configured</span>
+                    ) : (
+                      // VM not configured
+                      <span className="text-sm font-medium">Not configured</span>
                     )}
                   </div>
                 </div>
