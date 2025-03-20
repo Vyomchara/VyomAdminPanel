@@ -103,7 +103,7 @@ export function Sidebar({ className, clientName, onNavigate, currentView }: Side
           </Button>
           
           {/* Drones button with updated hover styling*/}
-          <Button 
+          {/* <Button 
             variant="ghost" 
             className={cn(
               "w-full justify-start h-12 text-base transition-colors",
@@ -123,7 +123,7 @@ export function Sidebar({ className, clientName, onNavigate, currentView }: Side
               />
             </div>
             Drones
-          </Button>
+          </Button> */}
         </div>
       </ScrollArea>
 
