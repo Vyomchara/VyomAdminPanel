@@ -31,7 +31,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox" // Added Checkbox import
-import { updateClientAction, deleteClientAction, checkForClientPemFile, createSignedUrl } from "@/app/action" // Import PEM file check function
+import { updateClientAction, deleteClientAction, checkForClientPemFile, createSignedUrl, createDroneAssignment, assignPayloadsToDrone } from "@/app/action" // Added missing imports
 
 export function SummaryDashboard({ client, droneAssignments }: { client: any, droneAssignments: any }) {
   const { theme, resolvedTheme } = useTheme()
@@ -61,6 +61,12 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
     exists: false,
     loading: true
   })
+  
+  // Add state for drone assignment
+  const [selectedDrone, setSelectedDrone] = useState<any>(null)
+  const [selectedPayloads, setSelectedPayloads] = useState<any[]>([])
+  const [droneQuantity, setDroneQuantity] = useState(1)
+  const [isAssigning, setIsAssigning] = useState(false)
   
   // Check for PEM file when component mounts
   useEffect(() => {
@@ -227,6 +233,58 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
     }
   }
   
+  // Add a function to handle drone assignment
+  const handleAssignDrone = async () => {
+    if (!selectedDrone) {
+      toast.error("Please select a drone to assign")
+      return
+    }
+    
+    setIsAssigning(true)
+    
+    try {
+      // First create the drone assignment
+      const assignmentResult = await createDroneAssignment(
+        client.id,
+        selectedDrone.id,
+        droneQuantity
+      );
+
+      if (!assignmentResult.success) {
+        throw new Error(assignmentResult.error);
+      }
+
+      // Make sure assignment exists before destructuring
+      if (!assignmentResult.assignment) {
+        throw new Error("Assignment data is missing from successful response");
+      }
+
+      // Now TypeScript knows assignmentResult has assignment property
+      const { assignment } = assignmentResult;
+
+      // If payloads are selected, assign them to the drone
+      if (selectedPayloads.length > 0) {
+        const payloadIds = selectedPayloads.map(p => p.id);
+        
+        const payloadResult = await assignPayloadsToDrone(
+          assignment.id,  // Now this is safe
+          payloadIds
+        );
+        
+        if (!payloadResult.success) {
+          throw new Error(payloadResult.error);
+        }
+      }
+      
+      toast.success("Drone assigned successfully")
+      // You might want to refresh data here
+    } catch (error: any) {
+      toast.error(`Failed to assign drone: ${error.message}`)
+    } finally {
+      setIsAssigning(false)
+    }
+  }
+
   return (
     <div>
       {/* Header with title and action buttons */}
@@ -542,12 +600,11 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
               </p>
               <Button 
                 className="flex items-center"
-                onClick={() => {
-                  toast.info("Drone assignment feature coming soon")
-                }}
+                onClick={handleAssignDrone}
+                disabled={isAssigning || !selectedDrone}
               >
                 <Plus className="h-4 w-4" />
-                Assign Drones
+                {isAssigning ? "Assigning..." : "Assign Drones"}
               </Button>
             </div>
           </div>

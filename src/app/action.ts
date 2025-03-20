@@ -698,3 +698,72 @@ export async function deleteClientPemFile(clientId: string): Promise<{ success: 
     };
   }
 }
+
+// Add these action functions for drone and payload management
+
+export async function getAvailableDrones() {
+  'use server';
+  
+  try {
+    // Use db directly instead of await createDb()
+    const drones = await db.select().from(Drone);
+    return { success: true, drones };
+  } catch (error) {
+    console.error('Error fetching available drones:', error);
+    return { success: false, error: String(error), drones: [] };
+  }
+}
+
+export async function getAvailablePayloads() {
+  'use server';
+  
+  try {
+    // Use db directly instead of await createDb()
+    const payloads = await db.select().from(Payload);
+    return { success: true, payloads };
+  } catch (error) {
+    console.error('Error fetching available payloads:', error);
+    return { success: false, error: String(error), payloads: [] };
+  }
+}
+
+export async function createDroneAssignment(clientId: string, droneId: number, quantity: number) {
+  'use server';
+  
+  try {
+    // Use db directly instead of await createDb()
+    const [assignment] = await db.insert(ClientDroneAssignment)
+      .values({
+        clientId,
+        droneId,
+        quantity
+      })
+      .returning();
+    
+    return { success: true, assignment };
+  } catch (error) {
+    console.error('Error creating drone assignment:', error);
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function assignPayloadsToDrone(assignmentId: string, payloadIds: number[]) {
+  'use server';
+  
+  try {
+    // Use db directly instead of await createDb()
+    const values = payloadIds.map(payloadId => ({
+      assignmentId,
+      payloadId
+    }));
+    
+    const assignments = await db.insert(DronePayloadAssignment)
+      .values(values)
+      .returning();
+    
+    return { success: true, assignments };
+  } catch (error) {
+    console.error('Error assigning payloads:', error);
+    return { success: false, error: String(error) };
+  }
+}

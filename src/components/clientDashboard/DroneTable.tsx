@@ -22,10 +22,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CircleAlertIcon, TrashIcon } from "lucide-react";
+import { CircleAlertIcon, TrashIcon, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
-export function DroneTable({ assignments }: { assignments: any[] }) {
+export function DroneTable({ assignments, payloads }: { 
+  assignments: any[],
+  payloads?: any[]
+}) {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [data, setData] = useState<any[]>(assignments);
   
@@ -154,6 +158,48 @@ export function DroneTable({ assignments }: { assignments: any[] }) {
                 </TableRow>
               ))
             )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Drone Model</TableHead>
+              <TableHead>Quantity</TableHead>
+              <TableHead>Payloads</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {assignments.map((assignment) => (
+              <TableRow key={assignment.id}>
+                <TableCell className="font-medium">{assignment.drone?.name || 'Unknown'}</TableCell>
+                <TableCell>{assignment.quantity || 1}</TableCell>
+                <TableCell>
+                  {assignment.payloads && assignment.payloads.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {assignment.payloads.map((payload: any) => (
+                        <Badge key={payload.id} variant="outline" className="text-xs">
+                          {payload.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">No payloads</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Button variant="ghost" size="icon">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
