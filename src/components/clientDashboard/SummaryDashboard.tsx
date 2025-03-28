@@ -2,7 +2,7 @@
 
 import { DroneTable } from "./DroneTable"
 import { toast } from "sonner"
-import { Mail, MapPin, Server, Trash2, Edit2, Plus, Eye, EyeOff, Lock, Download, Upload } from "lucide-react" // Added Plus, Eye, EyeOff, Download, and Upload icons
+import { Mail, MapPin, Server, Trash2, Edit2, Plus, Eye, EyeOff, Lock, Download, Upload, ChevronsUpDown, Check, X } from "lucide-react" // Added Plus, Eye, EyeOff, Download, and Upload icons
 import Image from "next/image"
 import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,10 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox" // Added Checkbox import
 import { updateClientAction, deleteClientAction, checkForClientPemFile, createSignedUrl, createDroneAssignment, assignPayloadsToDrone } from "@/app/action" // Added missing imports
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 export function SummaryDashboard({ client, droneAssignments }: { client: any, droneAssignments: any }) {
   const { theme, resolvedTheme } = useTheme()
@@ -52,6 +56,13 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
   const [vmConfigDialogOpen, setVmConfigDialogOpen] = useState(false) // Added state to control VM config dialog
   const [showVmPassword, setShowVmPassword] = useState(false) // Add this for password visibility
   
+  // Replace the single open state:
+  // const [open, setOpen] = useState(true) 
+
+  // With separate states for each dropdown:
+  const [droneSelectOpen, setDroneSelectOpen] = useState(false);
+  const [payloadSelectOpen, setPayloadSelectOpen] = useState(false);
+  
   // Add state for PEM file
   const [pemFileInfo, setPemFileInfo] = useState<{
     exists: boolean,
@@ -68,6 +79,9 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
   const [droneQuantity, setDroneQuantity] = useState(1)
   const [isAssigning, setIsAssigning] = useState(false)
   
+  // Add this with your other state variables at the top of the SummaryDashboard component
+  const [open, setOpen] = useState(false);
+
   // Check for PEM file when component mounts
   useEffect(() => {
     async function checkPemFile() {
@@ -452,20 +466,7 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
           <div className="p-4 bg-background rounded-lg shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-muted-foreground">Virtual Machine</h3>
-              {/* {client?.vm_ip && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7"
-                  onClick={() => {
-                    // Navigate to VM configuration
-                    router.push(`/client/vm-config?id=${client.id}`);
-                  }}
-                >
-                  <Edit2 className="h-3.5 w-3.5 mr-1" />
-                  Configure
-                </Button>
-              )} */}
+           
             </div>
             
             <div className="space-y-4">
@@ -598,13 +599,149 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
               <p className="text-muted-foreground mb-6">
                 This client doesn't have any drones assigned yet. Assign drones to enable mission planning and monitoring.
               </p>
+              
+              {/* Add drone selection form */}
+              <div className="w-full max-w-sm space-y-4 border rounded-md p-4 mb-4">
+                <h4 className="font-medium">Assign New Drone</h4>
+                
+                {/* Drone Model Dropdown */}
+                <div className="space-y-2">
+                  <Label>Drone Model</Label>
+                  <Popover open={droneSelectOpen} onOpenChange={setDroneSelectOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={droneSelectOpen}
+                        className="w-full justify-between"
+                      >
+                        {selectedDrone ? selectedDrone.name : "Select drone model..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search drone models..." />
+                        <CommandEmpty>No drone model found.</CommandEmpty>
+                        <CommandGroup>
+                          {[
+                            { id: 1, name: "Vyom-1" },
+                            { id: 2, name: "Vyom-2" },
+                            { id: 3, name: "Vyom-X Pro" }
+                          ].map((drone) => (
+                            <CommandItem
+                              key={drone.id}
+                              value={drone.name}
+                              onSelect={() => {
+                                setSelectedDrone(drone);
+                                setDroneSelectOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedDrone?.id === drone.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {drone.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                {/* Quantity Input */}
+                <div className="space-y-2">
+                  <Label>Quantity</Label>
+                  <Input 
+                    type="number" 
+                    min="1" 
+                    value={droneQuantity} 
+                    onChange={(e) => setDroneQuantity(parseInt(e.target.value) || 1)} 
+                  />
+                </div>
+                
+                {/* Payloads Dropdown */}
+                <div className="space-y-2">
+                  <Label>Payloads (Optional)</Label>
+                  <Popover open={payloadSelectOpen} onOpenChange={setPayloadSelectOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="w-full justify-between"
+                      >
+                        {selectedPayloads.length > 0 
+                          ? `${selectedPayloads.length} selected`
+                          : "Select payloads..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-full p-0">
+                      <Command>
+                        <CommandInput placeholder="Search payloads..." />
+                        <CommandEmpty>No payload found.</CommandEmpty>
+                        <CommandGroup>
+                          {[
+                            { id: 1, name: "Camera" },
+                            { id: 2, name: "Infrared Sensor" },
+                            { id: 3, name: "LiDAR" },
+                            { id: 4, name: "Thermal Imaging" }
+                          ].map((payload) => (
+                            <CommandItem
+                              key={payload.id}
+                              value={payload.name}
+                              onSelect={() => {
+                                // Toggle selection
+                                setSelectedPayloads(current => 
+                                  current.some(p => p.id === payload.id) 
+                                    ? current.filter(p => p.id !== payload.id)
+                                    : [...current, payload]
+                                );
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedPayloads.some(p => p.id === payload.id) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {payload.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                {/* Display selected payloads */}
+                {selectedPayloads.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedPayloads.map(payload => (
+                      <Badge key={payload.id} variant="secondary">
+                        {payload.name}
+                        <button 
+                          className="ml-1 rounded-full hover:bg-muted" 
+                          onClick={() => setSelectedPayloads(p => p.filter(item => item.id !== payload.id))}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
               <Button 
                 className="flex items-center"
                 onClick={handleAssignDrone}
                 disabled={isAssigning || !selectedDrone}
               >
-                <Plus className="h-4 w-4" />
-                {isAssigning ? "Assigning..." : "Assign Drones"}
+                <Plus className="h-4 w-4 mr-2" />
+                {isAssigning ? "Assigning..." : "Assign Drone"}
               </Button>
             </div>
           </div>
