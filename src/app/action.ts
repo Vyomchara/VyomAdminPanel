@@ -705,7 +705,6 @@ export async function getAvailableDrones() {
   'use server';
   
   try {
-    // Use db directly instead of await createDb()
     const drones = await db.select().from(Drone);
     return { success: true, drones };
   } catch (error) {
@@ -718,7 +717,6 @@ export async function getAvailablePayloads() {
   'use server';
   
   try {
-    // Use db directly instead of await createDb()
     const payloads = await db.select().from(Payload);
     return { success: true, payloads };
   } catch (error) {
@@ -731,7 +729,6 @@ export async function createDroneAssignment(clientId: string, droneId: number, q
   'use server';
   
   try {
-    // Use db directly instead of await createDb()
     const [assignment] = await db.insert(ClientDroneAssignment)
       .values({
         clientId,
@@ -751,7 +748,10 @@ export async function assignPayloadsToDrone(assignmentId: string, payloadIds: nu
   'use server';
   
   try {
-    // Use db directly instead of await createDb()
+    if (!payloadIds.length) {
+      return { success: true, assignments: [] };
+    }
+    
     const values = payloadIds.map(payloadId => ({
       assignmentId,
       payloadId
@@ -765,5 +765,40 @@ export async function assignPayloadsToDrone(assignmentId: string, payloadIds: nu
   } catch (error) {
     console.error('Error assigning payloads:', error);
     return { success: false, error: String(error) };
+  }
+}
+
+export async function getClientDroneAssignments(clientId: string) {
+  'use server';
+  
+  try {
+    const assignments = await db.select().from(ClientDroneAssignment)
+      .where(eq(ClientDroneAssignment.clientId, clientId));
+    
+    const enrichedAssignments = await Promise.all(assignments.map(async (assignment) => {
+      const [drone] = await db.select().from(Drone)
+        .where(eq(Drone.id, assignment.droneId));
+      
+      const payloadAssignments = await db.select().from(DronePayloadAssignment)
+        .where(eq(DronePayloadAssignment.assignmentId, assignment.id));
+      
+      const payloads = await Promise.all(payloadAssignments.map(async (pa) => {
+        if (pa.payloadId === null) return null;
+        const [payload] = await db.select().from(Payload)
+          .where(eq(Payload.id, pa.payloadId));
+        return payload;
+      }));
+      
+      return {
+        ...assignment,
+        drone,
+        payloads
+      };
+    }));
+    
+    return { success: true, assignments: enrichedAssignments };
+  } catch (error) {
+    console.error('Error fetching client drone assignments:', error);
+    return { success: false, error: String(error), assignments: [] };
   }
 }

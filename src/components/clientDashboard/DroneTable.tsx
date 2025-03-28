@@ -71,21 +71,17 @@ export function DroneTable({ assignments, payloads }: {
   assignments: any[],
   payloads?: any[]
 }) {
-  // Existing state
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [data, setData] = useState<any[]>(assignments);
   const [open, setOpen] = useState(false);
   
-  // Added missing state variables
   const [selectedDrone, setSelectedDrone] = useState<any>(null);
   const [selectedPayloads, setSelectedPayloads] = useState<any[]>([]);
   const [droneQuantity, setDroneQuantity] = useState(1);
   const [isAssigning, setIsAssigning] = useState(false);
   
-  // Define drone logo source
   const droneLogoSrc = "/drone.svg"; // Default image path
   
-  // Toggle a single row selection
   const toggleRowSelection = (droneId: string) => {
     const newSelected = new Set(selectedRows);
     if (newSelected.has(droneId)) {
@@ -96,7 +92,6 @@ export function DroneTable({ assignments, payloads }: {
     setSelectedRows(newSelected);
   };
   
-  // Toggle all rows selection
   const toggleAllSelection = () => {
     if (selectedRows.size === data.length) {
       setSelectedRows(new Set());
@@ -105,21 +100,14 @@ export function DroneTable({ assignments, payloads }: {
     }
   };
   
-  // Handle deleting selected drones
   const handleDeleteDrones = () => {
-    // Filter out the selected drones
     const updatedData = data.filter(drone => !selectedRows.has(drone.id || `no-id-${Math.random()}`));
     setData(updatedData);
-    setSelectedRows(new Set()); // Clear selection
+    setSelectedRows(new Set());
     
-    // Show success toast
     toast.success(`${selectedRows.size} drone${selectedRows.size > 1 ? 's' : ''} unassigned successfully`);
-    
-    // Here you would typically call an API to update the assignments
-    // For example: await unassignDrones(Array.from(selectedRows));
   };
 
-  // Add the missing handleAssignDrone function
   const handleAssignDrone = async () => {
     if (!selectedDrone) {
       toast.error("Please select a drone model");
@@ -128,13 +116,8 @@ export function DroneTable({ assignments, payloads }: {
     
     setIsAssigning(true);
     try {
-      // Here you would typically call an API to assign drones
-      // For example: await assignDrone(clientId, selectedDrone.id, droneQuantity, selectedPayloads);
-      
-      // Mock success for now
       setTimeout(() => {
         toast.success("Drone assigned successfully");
-        // Reset form or update data as needed
         setIsAssigning(false);
       }, 1000);
     } catch (error) {
@@ -145,7 +128,6 @@ export function DroneTable({ assignments, payloads }: {
 
   return (
     <div className="space-y-4">
-      {/* Add the delete button if rows are selected */}
       {selectedRows.size > 0 && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -193,23 +175,41 @@ export function DroneTable({ assignments, payloads }: {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox 
+                  checked={selectedRows.size > 0}
+                  onCheckedChange={toggleAllSelection}
+                  aria-label="Select all drones"
+                />
+              </TableHead>
+              <TableHead className="w-[60px]">S.No</TableHead>
               <TableHead>Drone Model</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Payloads</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {assignments.length === 0 ? (
-              <TableRow key="empty-assignments">
-                <TableCell colSpan={4} className="h-24 text-center">
-                  No assignments found
+              <TableRow key="empty-row">
+                <TableCell colSpan={6} className="h-24 text-center">
+                  No drones assigned
                 </TableCell>
               </TableRow>
             ) : (
               assignments.map((assignment, index) => (
                 <TableRow key={assignment.id || `assignment-row-${index}`}>
-                  <TableCell className="font-medium">{assignment.drone?.name || 'Unknown'}</TableCell>
+                  <TableCell>
+                    <Checkbox 
+                      checked={selectedRows.has(assignment.id)}
+                      onCheckedChange={() => toggleRowSelection(assignment.id)}
+                      aria-label={`Select assignment ${index + 1}`}
+                    />
+                  </TableCell>
+                  <TableCell className="text-center">{index + 1}</TableCell>
+                  <TableCell className="font-medium">
+                    {assignment.drone?.name || "Unknown Drone"}
+                  </TableCell>
                   <TableCell>{assignment.quantity || 1}</TableCell>
                   <TableCell>
                     {assignment.payloads && assignment.payloads.length > 0 ? (
@@ -224,7 +224,7 @@ export function DroneTable({ assignments, payloads }: {
                       <span className="text-muted-foreground text-sm">No payloads</span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-right">
                     <Button variant="ghost" size="icon">
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -239,7 +239,6 @@ export function DroneTable({ assignments, payloads }: {
         </Table>
       </div>
 
-      {/* Only render the form when there are no assignments */}
       {(!assignments || assignments.length === 0) && (
         <div className="bg-background rounded-lg shadow-sm p-8">
           <div className="max-w-md mx-auto flex flex-col items-center">
@@ -258,7 +257,6 @@ export function DroneTable({ assignments, payloads }: {
             <div className="w-full max-w-sm space-y-4 border rounded-md p-4">
               <h4 className="font-medium">Assign New Drone</h4>
               
-              {/* Drone Model Dropdown */}
               <div className="space-y-2">
                 <Label>Drone Model</Label>
                 <Popover open={open} onOpenChange={setOpen}>
@@ -306,7 +304,6 @@ export function DroneTable({ assignments, payloads }: {
                 </Popover>
               </div>
               
-              {/* Quantity Input */}
               <div className="space-y-2">
                 <Label>Quantity</Label>
                 <Input 
@@ -317,7 +314,6 @@ export function DroneTable({ assignments, payloads }: {
                 />
               </div>
               
-              {/* Payloads Dropdown */}
               <div className="space-y-2">
                 <Label>Payloads (Optional)</Label>
                 <Popover>
@@ -348,7 +344,6 @@ export function DroneTable({ assignments, payloads }: {
                             key={payload.id}
                             value={payload.name}
                             onSelect={() => {
-                              // Toggle selection
                               setSelectedPayloads(current => 
                                 current.some(p => p.id === payload.id) 
                                   ? current.filter(p => p.id !== payload.id)
@@ -371,7 +366,6 @@ export function DroneTable({ assignments, payloads }: {
                 </Popover>
               </div>
               
-              {/* Display selected payloads */}
               {selectedPayloads.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
                   {selectedPayloads.map(payload => (
@@ -388,7 +382,6 @@ export function DroneTable({ assignments, payloads }: {
                 </div>
               )}
               
-              {/* Submit Button */}
               <Button 
                 className="w-full mt-2"
                 onClick={handleAssignDrone}
