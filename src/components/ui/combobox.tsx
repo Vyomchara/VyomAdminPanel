@@ -71,9 +71,13 @@ export function ComboboxDemo() {
                 <CommandItem
                   key={framework.value}
                   value={framework.value}
+                  // Fix the onSelect handler with type guard
                   onSelect={(currentValue) => {
-                    setValue(currentValue === value ? "" : currentValue)
-                    setOpen(false)
+                    // Make sure we only use string values
+                    if (typeof currentValue === 'string') {
+                      setValue(currentValue === value ? "" : currentValue);
+                    }
+                    setOpen(false);
                   }}
                 >
                   {framework.label}

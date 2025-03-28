@@ -587,7 +587,7 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
           <DroneTable assignments={droneAssignments} />
         ) : (
           <div className="bg-background rounded-lg shadow-sm p-8 text-center">
-            <div className="max-w-md mx-auto flex flex-col items-center">
+            <div className="max-w-2xl mx-auto flex flex-col items-center">
               <Image 
                 src={droneLogoSrc}
                 alt="No drones"
@@ -601,69 +601,72 @@ export function SummaryDashboard({ client, droneAssignments }: { client: any, dr
               </p>
               
               {/* Add drone selection form */}
-              <div className="w-full max-w-sm space-y-4 border rounded-md p-4 mb-4">
+              <div className="w-full max-w-xl space-y-4 border rounded-md p-4 mb-4">
                 <h4 className="font-medium">Assign New Drone</h4>
                 
-                {/* Drone Model Dropdown */}
-                <div className="space-y-2">
-                  <Label>Drone Model</Label>
-                  <Popover open={droneSelectOpen} onOpenChange={setDroneSelectOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={droneSelectOpen}
-                        className="w-full justify-between"
-                      >
-                        {selectedDrone ? selectedDrone.name : "Select drone model..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full p-0">
-                      <Command>
-                        <CommandInput placeholder="Search drone models..." />
-                        <CommandEmpty>No drone model found.</CommandEmpty>
-                        <CommandGroup>
-                          {[
-                            { id: 1, name: "Vyom-1" },
-                            { id: 2, name: "Vyom-2" },
-                            { id: 3, name: "Vyom-X Pro" }
-                          ].map((drone) => (
-                            <CommandItem
-                              key={drone.id}
-                              value={drone.name}
-                              onSelect={() => {
-                                setSelectedDrone(drone);
-                                setDroneSelectOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedDrone?.id === drone.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {drone.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                {/* Optional: Change to 2-column layout for wider form */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Drone Model Dropdown - in first column */}
+                  <div className="space-y-2">
+                    <Label>Drone Model</Label>
+                    <Popover open={droneSelectOpen} onOpenChange={setDroneSelectOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={droneSelectOpen}
+                          className="w-full justify-between"
+                        >
+                          {selectedDrone ? selectedDrone.name : "Select drone model..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Search drone models..." />
+                          <CommandEmpty>No drone model found.</CommandEmpty>
+                          <CommandGroup>
+                            {[
+                              { id: 1, name: "Vyom-1" },
+                              { id: 2, name: "Vyom-2" },
+                              { id: 3, name: "Vyom-X Pro" }
+                            ].map((drone) => (
+                              <CommandItem
+                                key={drone.id}
+                                value={drone.name}
+                                onSelect={() => {
+                                  setSelectedDrone(drone);
+                                  setDroneSelectOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedDrone?.id === drone.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {drone.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  {/* Quantity Input - in second column */}
+                  <div className="space-y-2">
+                    <Label>Quantity</Label>
+                    <Input 
+                      type="number" 
+                      min="1" 
+                      value={droneQuantity} 
+                      onChange={(e) => setDroneQuantity(parseInt(e.target.value) || 1)} 
+                    />
+                  </div>
                 </div>
                 
-                {/* Quantity Input */}
-                <div className="space-y-2">
-                  <Label>Quantity</Label>
-                  <Input 
-                    type="number" 
-                    min="1" 
-                    value={droneQuantity} 
-                    onChange={(e) => setDroneQuantity(parseInt(e.target.value) || 1)} 
-                  />
-                </div>
-                
-                {/* Payloads Dropdown */}
+                {/* Payloads Dropdown - full width */}
                 <div className="space-y-2">
                   <Label>Payloads (Optional)</Label>
                   <Popover open={payloadSelectOpen} onOpenChange={setPayloadSelectOpen}>

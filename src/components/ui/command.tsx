@@ -86,8 +86,13 @@ CommandGroup.displayName = "CommandGroup"
 
 const CommandItem = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & { selected?: boolean, disabled?: boolean }
->(({ className, selected, disabled, ...props }, ref) => (
+  React.HTMLAttributes<HTMLDivElement> & { 
+    selected?: boolean, 
+    disabled?: boolean,
+    value?: string,
+    onSelect?: (value: string) => void 
+  }
+>(({ className, selected, disabled, value, onSelect, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
@@ -98,6 +103,7 @@ const CommandItem = React.forwardRef<
     )}
     data-selected={selected || undefined}
     data-disabled={disabled || undefined}
+    onClick={() => onSelect && value && onSelect(value)}
     {...props}
   />
 ))
@@ -127,90 +133,6 @@ function CommandShortcut({
       )}
       {...props}
     />
-  )
-}
-
-// Example of how to use the updated components
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Check, ChevronsUpDown } from "lucide-react"
-import { cn } from "@/lib/utils"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-
-// This is a simpler combobox implementation that doesn't rely on cmdk
-export function SimpleCombobox({ 
-  options, 
-  value, 
-  onChange,
-  placeholder = "Select an option..." 
-}) {
-  const [open, setOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  
-  // Filter options based on search
-  const filteredOptions = options.filter(option => 
-    option.label.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-  
-  const selectedOption = options.find(option => option.value === value)
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-full justify-between"
-        >
-          {selectedOption ? selectedOption.label : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0" align="start">
-        <Command>
-          <CommandInput 
-            placeholder="Search..." 
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          />
-          <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup>
-              {filteredOptions.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  selected={value === option.value}
-                  onSelect={() => {
-                    onChange(option.value)
-                    setOpen(false)
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === option.value ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
   )
 }
 

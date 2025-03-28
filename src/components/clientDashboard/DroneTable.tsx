@@ -34,7 +34,6 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandInput,
-  CommandItem,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -42,6 +41,31 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import React from "react";
+
+const CommandItem = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { 
+    selected?: boolean, 
+    disabled?: boolean, 
+    value?: string,
+    onSelect?: (value: string) => void 
+  }
+>(({ className, selected, disabled, value, onSelect, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none",
+      selected && "bg-accent text-accent-foreground",
+      disabled && "pointer-events-none opacity-50",
+      className
+    )}
+    data-selected={selected || undefined}
+    data-disabled={disabled || undefined}
+    onClick={() => onSelect && value && onSelect(value)}
+    {...props}
+  />
+));
 
 export function DroneTable({ assignments, payloads }: { 
   assignments: any[],
@@ -164,55 +188,6 @@ export function DroneTable({ assignments, payloads }: {
           </AlertDialogContent>
         </AlertDialog>
       )}
-
-      {/* <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox 
-                  checked={selectedRows.size > 0}
-                  onCheckedChange={toggleAllSelection}
-                  aria-label="Select all drones"
-                />
-              </TableHead>
-              <TableHead className="w-[60px]">S.No</TableHead>
-              <TableHead>Drone ID</TableHead>
-              <TableHead>Model</TableHead>
-              <TableHead>Payload</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.length === 0 ? (
-              <TableRow key="empty-row">
-                <TableCell colSpan={5} className="h-24 text-center">
-                  No drones assigned
-                </TableCell>
-              </TableRow>
-            ) : (
-              data.map((drone, index) => (
-                <TableRow key={drone.id || `drone-row-${index}`}>
-                  <TableCell>
-                    <Checkbox 
-                      checked={selectedRows.has(drone.id || `no-id-${index}`)}
-                      onCheckedChange={() => toggleRowSelection(drone.id || `no-id-${index}`)}
-                      aria-label={`Select drone ${drone.id || index + 1}`}
-                    />
-                  </TableCell>
-                  <TableCell className="text-center">{index + 1}</TableCell>
-                  <TableCell className="font-medium">
-                    {drone.id ? drone.id : <span className="text-muted-foreground italic">No Drone ID</span>}
-                  </TableCell>
-                  <TableCell>{drone.model || "Vyom-1"}</TableCell>
-                  <TableCell>
-                    {drone.payload ? drone.payload : <span className="text-muted-foreground italic">No Payload</span>}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div> */}
 
       <div className="rounded-md border">
         <Table>
