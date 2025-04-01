@@ -55,7 +55,7 @@ export async function createRequiredBuckets() {
 export async function uploadFileToBucket(
   file: File,
   clientId: string,
-  bucketName: string = 'images' // Default to 'image' bucket but allow others
+  bucketName: string = 'mission' // Default to 'image' bucket but allow others
 ) {
   try {
     console.log(`Uploading file '${file.name}' to ${bucketName} bucket...`);
@@ -216,6 +216,12 @@ export async function getMissionFiles(
   } = {}
 ) {
   try {
+    // Add this to the beginning of the getMissionFiles function
+    if (!clientId) {
+      console.error("getMissionFiles called with empty clientId");
+      return { success: false, error: "Client ID is required", files: [] };
+    }
+
     // Default options
     const {
       bucketName = 'mission',
@@ -225,14 +231,13 @@ export async function getMissionFiles(
       limit
     } = options;
 
-    if (!clientId) {
-      return { success: false, error: "Client ID is required", files: [] };
-    }
-
     const supabase = createClient(
       SUPABASE_URL,
       SUPABASE_SERVICE_KEY
     );
+
+    // Add this after creating the Supabase client
+    console.log("Listing files from bucket:", bucketName, "for client:", clientId);
 
     // List files from client's folder in the bucket
     const { data, error } = await supabase.storage

@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { UploadCloud, CheckCircle2, Trash2, FileText, Image as ImageIcon, File } from "lucide-react";
+import { UploadCloud, CheckCircle2, Trash2, FileText, Image as ImageIcon, File, Loader2, Upload } from "lucide-react";
 
 // Import from the new direct upload functions
 import { uploadFileToBucket, uploadMultipleFiles } from "@/lib/uploadToBucket";
+import { saveFilesToClient } from "@/app/action"; // Import from app/action, not from a non-existent lib file
 
 // Context for sharing state between components
 type MediaUploaderContextType = {
@@ -60,7 +61,7 @@ export const MediaUploader = forwardRef<
       onValueChange,
       dropzoneOptions,
       clientId, // Changed from bucket
-      fileType = 'image', // Changed from path, with default
+      fileType = 'mission', // Changed from path, with default
       onUploadComplete,
       buttonText = "Upload Files",
       imageOnly = false,
@@ -188,10 +189,34 @@ export const MediaUploader = forwardRef<
         if (urls.length > 0) {
           toast.success(`Successfully uploaded ${urls.length} file${urls.length > 1 ? 's' : ''}`);
           onUploadComplete?.(urls);
+
+          // Save URLs to database with simplified function
+          let allSuccess = true;
+          for (const url of urls) {
+            const result = await saveFilesToClient({
+              url,
+              bucketName: 'mission',
+              clientId,
+              fileType: 'mission',
+              fileName: url.split('/').pop() || 'unknown'
+            });
+            
+            if (!result.success) {
+              toast.error(`Failed to save file record: ${result.error}`);
+              allSuccess = false;
+              break;
+            }
+          }
+          
+          if (allSuccess) {
+            toast.success("All file records saved successfully");
+            // Call the callback on successful upload
+            onUploadComplete?.(urls);
+          }
+
           // Clear files after upload
           onValueChange(null);
-        } else if (errors.length === 0) {
-          // This is a fallback in case no files were uploaded but no errors occurred
+        } else {
           toast.error("No files were uploaded");
         }
       } catch (error) {
@@ -222,26 +247,28 @@ export const MediaUploader = forwardRef<
         >
           {children}
           
-          {/* Upload button appears if bucket is provided and files are selected */}
-          {clientId && value && value.length > 0 && (
+          {/* Upload button appears if bucket is provided */}
+          {clientId && (
             <Button 
               onClick={handleUpload} 
               className="w-full"
-              disabled={isUploading}
+              disabled={isUploading || !value || value.length === 0}
             >
               {isUploading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Uploading...
-                </span>
-              ) : (
-                <span className="flex items-center">
+                </>
+              ) : value && value.length > 0 ? (
+                <>
                   <UploadCloud className="mr-2 h-4 w-4" />
                   {buttonText}
-                </span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="mr-2 h-4 w-4" />
+                  {buttonText}
+                </>
               )}
             </Button>
           )}
@@ -261,7 +288,7 @@ export const MediaDropzone = forwardRef<
   const { getRootProps, getInputProps, isDragActive, files } = useMediaUploader();
   const { maxFiles = Infinity } = getRootProps()?.item?.dropzoneOptions || {};
   const isMaxFilesReached = files && files.length >= maxFiles;
-  
+
   return (
     <div
       ref={ref}
@@ -316,7 +343,7 @@ export const MediaItem = forwardRef<
   MediaItemProps & React.HTMLAttributes<HTMLDivElement>
 >(({ className, index, children, showPreview = true, ...props }, ref) => {
   const { removeFile, isUploading, files, previewUrls } = useMediaUploader();
-  
+
   if (!files) return null;
   
   const file = files[index];
@@ -366,7 +393,7 @@ export const MediaItem = forwardRef<
           )}
         </div>
       </div>
-      
+
       <button
         type="button"
         onClick={() => removeFile(index)}

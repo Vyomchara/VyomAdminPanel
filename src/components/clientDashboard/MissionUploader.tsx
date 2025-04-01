@@ -29,6 +29,11 @@ export function MissionUploader({ clientId, onUploadComplete }: MissionUploaderP
       return;
     }
     
+    if (!clientId) {
+      toast.error("Missing client ID. Please select a valid client.");
+      return;
+    }
+    
     setIsUploading(true);
     
     try {
@@ -50,15 +55,15 @@ export function MissionUploader({ clientId, onUploadComplete }: MissionUploaderP
       if (urls.length > 0) {
         toast.success(`Uploaded ${urls.length} mission files`);
         
-        // Save URLs to database
+        // Save URLs to database using simplified function
         let allSuccess = true;
         for (const url of urls) {
-          const fileName = url.split('/').pop() || 'unknown';
           const result = await saveFilesToClient({
+            url,
+            bucketName: 'mission',
             clientId,
-            fileUrl: url,
-            fileType: 'mission',
-            fileName
+             // This is now allowed by the updated type
+            fileName: files.find(file => file.name === url.split('/').pop())?.name || 'unknown' // Pass the actual filename
           });
           
           if (!result.success) {
@@ -116,8 +121,8 @@ export function MissionUploader({ clientId, onUploadComplete }: MissionUploaderP
               const fileName = url.split('/').pop() || 'unknown';
               const result = await saveFilesToClient({
                 clientId,
-                fileUrl: url,
-                fileType: 'mission',
+                url,
+                bucketName: 'mission',
                 fileName
               });
               

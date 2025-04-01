@@ -184,34 +184,49 @@ export async function deleteClientAction(clientId: string) {
 /**
  * Save file URLs to database
  */
-export async function saveFilesToClient(data: {
+export async function saveFilesToClient(params: {
+  url: string;
+  bucketName: string;
   clientId: string;
-  fileUrl: string;
-  fileType: 'mission';
-  fileName: string;
+  fileType?: string;
+  fileName?: string;
 }) {
+  'use server';
+  
   try {
-    // TODO: Implement database logic to save the file URLs
-    // Example:
-    // const file = {
-    //   client_id: data.clientId,
-    //   file_url: data.fileUrl,
-    //   file_type: data.fileType,
-    //   file_name: data.fileName,
-    //   created_at: new Date()
-    // };
-    // 
-    // await db.insert(clientFiles).values(file);
+    const { url, bucketName, clientId, fileType = 'mission', fileName } = params;
     
-    // Revalidate paths to update UI
-    revalidatePath(`/client?id=${data.clientId}`);
+    // Extract filename from URL if not provided
+    const extractedFileName = fileName || url.split('/').pop() || 'unnamed';
     
-    return { success: true };
+    console.log("Saving file metadata:", {
+      clientId,
+      fileName: extractedFileName,
+      bucketName,
+      fileType,
+      url
+    });
+    
+    // TODO: Add database storage logic here if needed
+    
+    // Revalidate the path
+    revalidatePath(`/client?id=${clientId}`);
+    
+    return { 
+      success: true,
+      fileDetails: {
+        fileName: extractedFileName,
+        extension: extractedFileName.split('.').pop() || '',
+        url,
+        bucketName,
+        fileType
+      }
+    };
   } catch (error) {
-    console.error("Error saving file URL:", error);
+    console.error("Error saving file to client:", error);
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : "Unknown error" 
+      error: error instanceof Error ? error.message : "Unknown error occurred" 
     };
   }
 }
@@ -260,13 +275,12 @@ export async function uploadFileToServer(
       const clientId = bucketOrClientId;
       const fileType = fileTypeOrPath;
       
-      bucket = 'client-files';
-      fullPath = `clients/${clientId}/${fileType}s/${fileName}`;
+      bucket = 'mission';
+      fullPath = `clients/${clientId}/${Date.now()}${fileName}`;
       
       // Validate file type for client uploads
-     // const allowedTypes = fileType === 'mission'
-     const allowedTypes = fileType === 'image' 
-        ? ['application/json', 'application/x-yaml']
+      const allowedTypes = fileType === 'mission'
+        ? ['application/json', 'text/plain', 'application/xml', 'application/zip', 'application/x-yaml']
         : ['image/jpeg', 'image/png', 'image/gif'];
         
       if (!allowedTypes.includes(file.type)) {
@@ -304,10 +318,9 @@ export async function uploadFileToServer(
     // For client uploads, save to database
     if (isClientUpload) {
       await saveFilesToClient({
-        clientId: bucketOrClientId,
-        fileUrl: urlData.publicUrl,
-        fileType: fileTypeOrPath as 'mission',
-        fileName: file.name
+        url: urlData.publicUrl,
+        bucketName: bucket,
+        clientId: bucketOrClientId
       });
     }
     
@@ -430,81 +443,47 @@ export async function uploadClientFiles(
 }
 
 /**
- * List client files with filtering and sorting capabilities
+ * List client files
  */
-export async function listClientFiles(
-  clientId: string,
-  fileType: string = 'all',
-  sortBy: 'name' | 'created' | 'size' = 'name',
-  sortDirection: 'asc' | 'desc' = 'asc'
-) {
-  console.log(`[SERVER] listClientFiles: Starting for client ${clientId}, fileType: ${fileType}`);
+export async function listClientFiles(clientId: string) {
+  'use server';
   
-  try {
-    // Fetch files directly using client ID
-    console.log(`[SERVER] listClientFiles: Fetching files for ${clientId}`);
-    const response = await getMissionFiles(clientId);
-    
-    console.log(`[SERVER] listClientFiles: Got response:`, 
-      { success: response.success, fileCount: response.files?.length || 0 });
-    
-    if (!response.success) {
-      console.error(`[SERVER] listClientFiles: Error from getMissionFilesWithSignedUrls:`, response.error);
-      return response;
-    }
-    
-    let files = response.files || [];
-    
-    // Apply file type filter if specified
-    if (fileType !== 'all') {
-      const preFilterCount = files.length;
-      files = files.filter(file => {
-        if (!file) return false;
-        const extension = file.extension?.toLowerCase();
-        return extension === fileType.toLowerCase();
-      });
-      console.log(`[SERVER] listClientFiles: Filtered by type '${fileType}': ${preFilterCount} → ${files.length} files`);
-    }
-    
-    // Sort files as requested
-    files = files.sort((a, b) => {
-      if (sortBy === 'name') {
-        if (a && b) {
-          return sortDirection === 'asc'
-            ? a.name.localeCompare(b.name)
-            : b.name.localeCompare(a.name);
-        }
-      }
-      else if (sortBy === 'created') {
-        if (a && b) {
-          const dateA = new Date(a.createdAt).getTime();
-          const dateB = new Date(b.createdAt).getTime();
-          return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
-        }
-      }
-      else if (sortBy === 'size') {
-        if (a && b) {
-          const sizeA = a.metadata?.size || 0;
-          const sizeB = b.metadata?.size || 0;
-          return sortDirection === 'asc' ? sizeA - sizeB : sizeB - sizeA;
-        }
-      }
-      return 0;
-    });
-    
-    console.log(`[SERVER] listClientFiles: Returning ${files.length} sorted files`);
-    
-    return { 
-      success: true, 
-      files,
-      error: null
-    };
-  } catch (error) {
-    console.error("[SERVER] Error listing client files:", error);
+  console.log("Server action: listClientFiles for client", clientId);
+  
+  // Validate clientId early
+  if (!clientId) {
+    console.error("listClientFiles called with empty clientId");
     return { 
       success: false, 
-      files: [],
-      error: error instanceof Error ? error.message : "Unknown error"
+      error: "Missing client ID", 
+      files: [] 
+    };
+  }
+  
+  try {
+    console.log("Attempting to get mission files for clientId:", clientId);
+    const result = await getMissionFiles(clientId);
+    
+    console.log("Files fetched result:", result);
+    
+    if (!result || !result.success) {
+      return { 
+        success: false, 
+        error: result?.error || "Failed to load files", 
+        files: [] 
+      };
+    }
+    
+    return {
+      success: true,
+      files: result.files || []
+    };
+  } catch (error) {
+    console.error("Error in listClientFiles:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unknown error occurred",
+      files: []
     };
   }
 }
@@ -694,7 +673,7 @@ export async function deleteClientPemFile(clientId: string): Promise<{ success: 
     console.error("Error deleting PEM file:", error);
     return { 
       success: false, 
-      message: error instanceof Error ? error.message : "Unknown error occurred" 
+      message: error instanceof Error ? error.message : "Unknown error occurred"
     };
   }
 }
@@ -772,6 +751,28 @@ export async function getClientDroneAssignments(clientId: string) {
   'use server';
   
   try {
+    // Check if clientId is valid
+    if (!clientId) {
+      console.error("Missing client ID in getClientDroneAssignments");
+      return { 
+        success: false, 
+        error: "Missing client ID",
+        assignments: [] 
+      };
+    }
+
+    // First check if client exists
+    const clientCheck = await db.select().from(Client).where(eq(Client.id, clientId));
+    
+    if (clientCheck.length === 0) {
+      console.error(`Client with ID ${clientId} not found`);
+      return { 
+        success: false, 
+        error: `Client with ID ${clientId} not found`,
+        assignments: [] 
+      };
+    }
+    
     const assignments = await db.select().from(ClientDroneAssignment)
       .where(eq(ClientDroneAssignment.clientId, clientId));
     
@@ -802,3 +803,10 @@ export async function getClientDroneAssignments(clientId: string) {
     return { success: false, error: String(error), assignments: [] };
   }
 }
+
+const accept = {
+  'application/json': ['.json'],
+  'application/xml': ['.xml'],
+  'text/plain': ['.txt'],
+  'application/zip': ['.zip'],
+};

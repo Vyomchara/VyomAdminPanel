@@ -7,7 +7,20 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Network, Server, Loader2, Eye, EyeOff, Lock, Upload, Download } from "lucide-react"
 import { toast } from "sonner"
-import { getClientDetails, updateClientVMIP, updateClientVMIPAndPassword, checkForClientPemFile, uploadPemFile, deleteClientPemFile, createSignedUrl } from "@/app/action"
+
+// Client operations
+import { getClientDetails } from "@/actions/client"
+
+// VM operations
+import { updateClientVMIP, updateClientVMIPAndPassword } from "@/actions/vm"
+
+// File operations
+import { 
+  checkForClientPemFile, 
+  uploadPemFile, 
+  deleteClientPemFile, 
+  createSignedUrl 
+} from "@/actions/file"
 
 interface ConfigurationProps {
   clientId: string

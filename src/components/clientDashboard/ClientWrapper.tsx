@@ -1,60 +1,105 @@
 "use client"
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useClient } from "@/hooks/useClient";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { SummaryDashboard } from "@/components/clientDashboard/SummaryDashboard";
 import { Configuration } from "@/components/clientDashboard/Configuration";
-import { MissionUploader } from "@/components/clientDashboard/MissionUploader";
+import { MissionDashboard } from "@/components/clientDashboard/MissionDashboard";
 import { FileGallery, FileGalleryHandle } from "@/components/clientDashboard/FileGallery";
-import { getClientDroneAssignments } from '@/app/action'; // Import directly instead of dynamic import
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export function ClientWrapper({ 
   clientId, 
   initialDroneAssignments 
 }: { 
   clientId: string;
-  initialDroneAssignments: any[]
+  initialDroneAssignments: any[];
 }) {
+  console.log("ClientWrapper rendered with clientId:", clientId);
+
   const fileGalleryRef = useRef<FileGalleryHandle>(null);
   const [droneAssignments, setDroneAssignments] = useState(initialDroneAssignments);
-  const isRefreshing = useRef(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const router = useRouter();
 
   const {
-    client, loading, currentView, setCurrentView, refreshClientData
-  } = useClient(clientId || null, {initialView: 'summary', redirectOnError: true});
+    client, 
+    loading, 
+    error,
+    currentView, 
+    setCurrentView, 
+    refreshClientData
+  } = useClient(clientId || null, {
+    initialView: 'summary', 
+    redirectOnError: false
+  });
 
-  // Function to refresh the file gallery
+  useEffect(() => {
+    console.log("ClientWrapper received clientId:", clientId);
+    
+    if (!clientId) {
+      console.error("ClientWrapper: Missing client ID");
+      // Consider redirecting to home page if no clientId
+    }
+  }, [clientId]);
+
+  useEffect(() => {
+    if (!loading && error && isInitialLoad) {
+      console.error("Client data error:", error);
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+        // Only redirect for authentication/permission errors, not data errors
+        if (error.includes("not authorized") || error.includes("permission")) {
+          router.push('/');
+        }
+      }
+    } else if (!loading && client) {
+      setIsInitialLoad(false);
+    }
+  }, [loading, error, client, router, isInitialLoad]);
+
+  useEffect(() => {
+    console.log("View changed to:", currentView);
+    console.log("Using clientId:", clientId);
+    
+    // If changing navigation, don't lose the clientId!
+  }, [currentView, clientId]);
+
   const handleUploadComplete = () => {
     fileGalleryRef.current?.refresh();
   }
 
-  // Function to refresh drone assignments - use memoized callback to prevent recreating
-  const refreshDroneAssignments = useCallback(async () => {
-    // Prevent duplicate refresh calls and racing conditions
-    if (isRefreshing.current) return;
-    isRefreshing.current = true;
-    
+  const refreshDroneAssignments = async () => {
     try {
-      // Use direct import instead of dynamic import to prevent issues
+      console.log("Refreshing drone assignments for client:", clientId);
+      const { getClientDroneAssignments } = await import('@/app/action');
       const result = await getClientDroneAssignments(clientId);
+      
       if (result.success) {
         setDroneAssignments(result.assignments);
+        console.log("Successfully refreshed assignments:", result.assignments);
+      } else {
+        console.error("Error refreshing assignments:", result.error);
+        // Don't redirect or change view on refresh errors
+        toast.error("Could not refresh drone assignments");
       }
     } catch (error) {
       console.error("Failed to refresh drone assignments:", error);
-    } finally {
-      isRefreshing.current = false;
     }
-  }, [clientId]);
+  };
 
-  if (loading) {
+  if (loading || (error && isInitialLoad)) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
+  }
+
+  if (error && !isInitialLoad) {
+    return <div className="flex items-center justify-center h-screen">Error loading client data</div>
   }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Fixed-width sidebar with full height */}
       <Sidebar 
         className="w-64 h-full shrink-0" 
         clientName={client?.name || ''}
@@ -62,10 +107,9 @@ export function ClientWrapper({
         currentView={currentView}
       />
       
-      {/* Main content area with scrolling contained within */}
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto scrollbar-hide p-4">
-          {currentView === 'summary' && (
+          {currentView === 'summary' && client && (
             <SummaryDashboard 
               client={client} 
               droneAssignments={droneAssignments}
@@ -83,16 +127,12 @@ export function ClientWrapper({
           )}
           
           {currentView === 'missions' && (
-            <div className="space-y-8">
-              <MissionUploader 
-                clientId={client?.id || ''} 
-                onUploadComplete={handleUploadComplete} 
+            <>
+              <MissionDashboard 
+                client={client} 
+                clientId={clientId} // Explicitly pass clientId here
               />
-              <FileGallery 
-                ref={fileGalleryRef}
-                clientId={client?.id || ''} 
-              />
-            </div>
+            </>
           )}
         </div>
       </div>

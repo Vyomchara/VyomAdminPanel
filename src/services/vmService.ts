@@ -1,4 +1,4 @@
-import { updateClientVMIP } from "@/app/action"
+import { updateClientVMIP } from "@/actions/vm"
 import { VMSettingsUpdateResponse } from "@/types/types"
 
 /**

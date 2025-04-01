@@ -23,46 +23,55 @@ export function useClient(clientId: string | null, options: UseClientOptions = {
   const [loading, setLoading] = useState(true)
   const [currentView, setCurrentView] = useState(initialView)
   const [vmPromptShown, setVmPromptShown] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    loadClientData()
-  }, [clientId])
-
-  async function loadClientData() {
-    if (!clientId) {
-      if (redirectOnError) router.push('/')
-      setLoading(false)
-      return
-    }
-
-    try {
-      // Get data through server action, not direct DB access
-      const result = await getClientDetails(clientId)
-      if (!result.success || !result.data) {
-        if (redirectOnError) router.push('/')
-        return
+    const loadData = async () => {
+      setLoading(true);
+      console.log("Loading client data for ID:", clientId);
+      
+      try {
+        // Ensure clientId is a string before calling getClientDetails
+        if (!clientId) {
+          console.error("Client ID is missing");
+          setError("Client ID is required");
+          setLoading(false);
+          return; // Exit early instead of throwing an error
+        }
+        
+        const response = await getClientDetails(clientId);
+        console.log("Client data response:", response);
+        
+        if (response.success && response.data) {
+          setClient(response.data);
+        } else {
+          console.error("Failed to load client:", response.message);
+          setError(response.message || "Failed to load client");
+          
+          if (redirectOnError) {
+            router.push('/');
+          }
+        }
+      } catch (err) {
+        console.error("Error loading client:", err);
+        setError(err instanceof Error ? err.message : "Unknown error");
+        
+        if (redirectOnError) {
+          router.push('/');
+        }
+      } finally {
+        setLoading(false);
       }
-      
-      setClient(result.data)
-      setStorageItem(`client_${clientId}`, result.data)
-      setStorageItem(`client_${clientId}_time`, Date.now())
-      
-      if (!result.data.vm_ip && !vmPromptShown) {
-        setCurrentView('config')
-        setVmPromptShown(true)
-        toast.info("Please configure VM IP address")
-      }
-      
-      await loadDroneAssignments(clientId)
-    } catch (error) {
-      console.error('Error loading client data:', error)
-      if (redirectOnError) router.push('/')
-    } finally {
-      setLoading(false)
+    };
+    
+    if (clientId) {
+      loadData();
+    } else {
+      setLoading(false);
     }
-  }
-  
+  }, [clientId, redirectOnError, router]);
+
   async function loadDroneAssignments(clientId: string) {
     try {
       const assignments = await getDroneAssignments(clientId)
@@ -92,6 +101,7 @@ export function useClient(clientId: string | null, options: UseClientOptions = {
     client,
     droneAssignments,
     loading,
+    error,
     currentView,
     setCurrentView,
     refreshClientData,

@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input"
 import { RefreshCw, FileType2, Filter } from "lucide-react"
 import { toast } from "sonner"
 import { MissionFilesTable } from "./MissionFilesTable"
-import { listClientFiles, deleteFile, createSignedUrl } from "@/app/action"
+import { listClientFiles } from "@/app/action"
+import { MissionFile } from "@/types/files"
 
 // Define a ref handle type to expose the refresh method
 export interface FileGalleryHandle {
@@ -19,19 +20,18 @@ interface FileGalleryProps {
   clientId: string;
 }
 
-// Fix the component export - use a named function instead of arrow function with forwardRef
 function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.ForwardedRef<FileGalleryHandle>) {
-  const [isLoading, setIsLoading] = useState(true)
-  const [files, setFiles] = useState<any[]>([])
+  const [files, setFiles] = useState<MissionFile[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [viewFileUrl, setViewFileUrl] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'name' | 'created' | 'size'>('created')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [fileType, setFileType] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
-  const bucketName = 'mission'
-  
+
   // Get file extensions from the current files for filter dropdown
   const availableFileTypes = Array.from(new Set(files.map(file => file.extension))).filter(Boolean)
-  
+
   // Filter files based on search query and file type filter
   const filteredFiles = files.filter(file => {
     const matchesSearch = searchQuery ? 
@@ -44,45 +44,53 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
       
     return matchesSearch && matchesType
   })
-  
-  // Function to load files from server
+
+  // Enhanced loadFiles function with better error handling
   const loadFiles = async () => {
-    if (!clientId) {
-      console.error("FileGallery: Client ID is missing");
-      toast.error("Client ID is missing")
-      return
-    }
+    console.log("FileGallery loadFiles called with clientId:", clientId);
+    setIsLoading(true);
     
-    console.log(`FileGallery: Starting to load files for client ${clientId}`);
-    setIsLoading(true)
+    if (!clientId) {
+      console.error("Missing client ID");
+      toast.error("Client ID is missing. Please select a valid client.");
+      setFiles([]);
+      setIsLoading(false);
+      return;
+    }
     
     try {
-      // Use the server action to get files with signed URLs
-      console.log(`FileGallery: Calling listClientFiles with params:`, {
-        clientId, fileType, sortBy, sortDirection
-      });
+      console.log("Calling listClientFiles with clientId:", clientId);
+      const response = await listClientFiles(clientId);
+      console.log("listClientFiles response:", response);
       
-      const response = await listClientFiles(clientId, fileType, sortBy, sortDirection);
-      console.log(`FileGallery: Got response from listClientFiles:`, response);
-      
-      if (response.success) {
-        // Sort the files according to current sort settings
-        const sortedFiles = sortFiles(response.files, sortBy, sortDirection);
-        console.log(`FileGallery: Sorted ${sortedFiles.length} files successfully`);
-        setFiles(sortedFiles)
+      if (response.success && response.files) {
+        // Convert the response files to match the MissionFile type
+        const formattedFiles: MissionFile[] = response.files.map(file => ({
+          name: file.name,
+          url: file.url,
+          path: file.path || '',
+          extension: file.extension || file.name.split('.').pop()?.toLowerCase() || '',
+          createdAt: new Date(file.createdAt || file.created_at || Date.now()),
+          sizeFormatted: file.sizeFormatted || 'Unknown',
+          bucketName: file.bucketName || 'mission',
+          metadata: {
+            size: typeof file.metadata?.size === 'number' ? file.metadata.size : 0,
+            mimetype: file.metadata?.mimetype
+          }
+        }));
+        
+        setFiles(formattedFiles);
       } else {
-        console.error("FileGallery: Error loading files:", response.error)
-        toast.error(`Failed to load files: ${response.error}`)
-        setFiles([])
+        console.error("Error loading files:", response.error);
+        setFiles([]);
       }
     } catch (error) {
-      console.error("FileGallery Error:", error)
-      toast.error(`Error loading files: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      setFiles([])
+      console.error("Error in loadFiles:", error);
+      setFiles([]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Expose the loadFiles method via ref
   useImperativeHandle(ref, () => ({
@@ -108,22 +116,6 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
   // Function to handle file deletion
   const handleDeleteFile = async (file: any) => {
     try {
-      console.log(`Attempting to delete file: ${file.path} from bucket: ${file.bucketName || 'mission'}`);
-      
-      if (!file.path) {
-        throw new Error("File path is missing");
-      }
-      
-      // Use server action to delete file with admin permissions
-      const result = await deleteFile(
-        file.path, 
-        //'mission'
-      );
-      
-      if (!result.success) {
-        throw new Error(result.message);
-      }
-      
       toast.success("File deleted successfully");
       
       // Refresh file list after successful deletion
@@ -136,28 +128,16 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
     }
   }
 
-  // Function to handle file viewing/downloading with the provided signed URL
+  // Function to handle file viewing/downloading
   const handleViewFile = async (file: any) => {
     try {
-      // Since we already have a signed URL, we can use it directly
       if (file.url) {
         window.open(file.url, "_blank")
         return true
       }
       
-      // Use server action instead of direct Supabase access
-      const response = await createSignedUrl(file.path, file.bucketName, 120);
-      
-      if (!response.success) {
-        throw new Error(response.error || "Failed to create signed URL");
-      }
-      
-      if (response.url) {
-        window.open(response.url, "_blank")
-        return true
-      } else {
-        throw new Error("Could not access file")
-      }
+      toast.error("File viewing not implemented");
+      return false;
     } catch (error) {
       toast.error(`Error viewing file: ${error instanceof Error ? error.message : 'Unknown error'}`)
       return false
@@ -232,7 +212,7 @@ export const FileGallery = forwardRef<FileGalleryHandle, FileGalleryProps>(FileG
 // Set displayName properly
 FileGallery.displayName = "FileGallery"
 
-// Helper function to sort files (keeps this outside component to avoid recreating on each render)
+// Helper function to sort files
 function sortFiles(filesList: any[], sortField: string, direction: 'asc' | 'desc') {
   return [...filesList].sort((a, b) => {
     if (sortField === 'name') {

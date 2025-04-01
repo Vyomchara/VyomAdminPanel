@@ -24,21 +24,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
-
-// Define the file object type based on the getMissionFiles return
-type MissionFile = {
-  name: string
-  url: string
-  path: string
-  extension: string
-  createdAt: Date
-  sizeFormatted: string
-  metadata?: {
-    size: number
-    mimetype?: string
-  }
-  bucketName: string
-}
+import { MissionFile } from "@/types/files"
 
 interface MissionFilesTableProps {
   files: MissionFile[]
@@ -207,19 +193,19 @@ export function MissionFilesTable({
           {isLoading ? (
             <TableRow>
               <TableCell colSpan={5} className="h-24 text-center">
-                <div className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <div className="flex flex-col items-center justify-center space-y-2">
+                  <svg className="animate-spin h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Loading files...
+                  <span>Loading mission files...</span>
                 </div>
               </TableCell>
             </TableRow>
           ) : files.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} className="h-24 text-center">
-                No files found
+                No mission files found
               </TableCell>
             </TableRow>
           ) : (

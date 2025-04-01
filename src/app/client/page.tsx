@@ -1,23 +1,21 @@
-import { getClientDroneAssignments } from '@/app/action';
 import { ClientWrapper } from '@/components/clientDashboard/ClientWrapper';
-import { droneAssignmentSelect } from "@/drizzle/schema";
 
-export default async function ClientPage({ params }: { params: { id?: string } }) {
-  const clientId = params.id;
+export default function ClientPage({ 
+  searchParams 
+}: { 
+  searchParams: { id: string } 
+}) {
+  const clientId = searchParams.id;
   
-  // Fetch drone assignments for this client
-  let droneAssignments: droneAssignmentSelect[] = [];
-  if (clientId) {
-    const result = await getClientDroneAssignments(clientId);
-    if (result.success) {
-      droneAssignments = result.assignments;
-    }
+  if (!clientId) {
+    console.error("Client page loaded without ID parameter");
+    // Maybe add a redirect or error display here
   }
-
+  
   return (
     <ClientWrapper 
-      clientId={clientId || ''} 
-      initialDroneAssignments={droneAssignments} 
+      clientId={clientId}
+      initialDroneAssignments={[]} // Add this missing required prop
     />
   );
 }

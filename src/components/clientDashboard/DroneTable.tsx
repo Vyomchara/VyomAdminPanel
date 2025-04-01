@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import React from "react";
+import { createDroneAssignment } from "@/app/action"; // Added createDroneAssignment import
 
 const CommandItem = React.forwardRef<
   HTMLDivElement,
@@ -67,9 +68,10 @@ const CommandItem = React.forwardRef<
   />
 ));
 
-export function DroneTable({ assignments, payloads }: { 
+export function DroneTable({ assignments, payloads, clientId }: { 
   assignments: any[],
-  payloads?: any[]
+  payloads?: any[],
+  clientId: string
 }) {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [data, setData] = useState<any[]>(assignments);
@@ -116,6 +118,19 @@ export function DroneTable({ assignments, payloads }: {
     
     setIsAssigning(true);
     try {
+      const assignmentResult = await createDroneAssignment(
+        clientId,
+        selectedDrone.id,
+        droneQuantity
+      );
+
+      if (!assignmentResult.success) {
+        throw new Error(assignmentResult.error || "Failed to create drone assignment");
+      }
+
+      // Get the assignment ID from the result for payload assignment
+      const { assignment } = assignmentResult;
+
       setTimeout(() => {
         toast.success("Drone assigned successfully");
         setIsAssigning(false);

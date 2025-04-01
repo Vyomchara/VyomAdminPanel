@@ -79,7 +79,7 @@ export function SummaryDashboard({
     fetchOptions();
   }, []);
   
-  const handleAssignDrone = async (e) => {
+  const handleAssignDrone = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault(); // Prevent form submission
     
     if (!selectedDrone) {
@@ -87,32 +87,51 @@ export function SummaryDashboard({
       return;
     }
     
-    if (!client?.id) {
-      toast.error("Client information is missing");
+    // Fix #1: Get clientId directly from props or from the client object 
+    // with better error messaging and fallback
+    const clientId = client?.id || '';
+    
+    if (!clientId) {
+      toast.error("Client ID is missing. Please reload the page or select a client.");
+      console.error("Missing client ID in handleAssignDrone - client:", client);
       return;
     }
     
     setIsAssigning(true);
     
     try {
-      // First create the drone assignment
+      // Fix #2: Log the values being sent to help with debugging
+      console.log("Creating drone assignment with:", {
+        clientId,
+        droneId: selectedDrone.id,
+        quantity: droneQuantity
+      });
+      
+      // Create the drone assignment
       const assignmentResult = await createDroneAssignment(
-        client.id,
+        clientId,
         selectedDrone.id,
         droneQuantity
       );
 
       if (!assignmentResult.success) {
-        throw new Error(assignmentResult.error);
+        throw new Error(assignmentResult.error || "Failed to create drone assignment");
       }
 
-      if (!assignmentResult.assignment) {
-        throw new Error("Assignment data is missing from successful response");
-      }
-
+      // Get the assignment ID from the result for payload assignment
       const { assignment } = assignmentResult;
+      
+      // Fix #3: Add debug log for the assignment result
+      console.log("Assignment created:", assignment);
 
+      // If payloads are selected, assign them
       if (selectedPayloads.length > 0) {
+        // Check if assignment exists and has an id
+        if (!assignment || !assignment.id) {
+          console.error("Invalid assignment object:", assignment);
+          throw new Error("Assignment data is invalid or missing");
+        }
+        
         const payloadIds = selectedPayloads.map(p => p.id);
         
         const payloadResult = await assignPayloadsToDrone(
@@ -121,20 +140,23 @@ export function SummaryDashboard({
         );
         
         if (!payloadResult.success) {
-          throw new Error(payloadResult.error);
+          throw new Error(payloadResult.error || "Failed to assign payloads");
         }
       }
       
-      toast.success(`Successfully assigned ${droneQuantity} ${selectedDrone.name} drone(s) to ${client.name}`);
+      toast.success(`Successfully assigned ${droneQuantity} ${selectedDrone.name} drone(s) to ${client?.name || 'client'}`);
       
+      // Reset form
       setSelectedDrone(null);
       setSelectedPayloads([]);
       setDroneQuantity(1);
 
+      // Refresh drone assignments
       if (onAssignmentChange) {
         onAssignmentChange();
       }
     } catch (error: any) {
+      console.error("Drone assignment error:", error);
       toast.error(`Failed to assign drone: ${error.message}`);
     } finally {
       setIsAssigning(false);
@@ -324,7 +346,10 @@ export function SummaryDashboard({
           </div>
         </div>
       ) : (
-        <DroneTable assignments={droneAssignments} />
+        <DroneTable 
+          assignments={droneAssignments} 
+          clientId={client?.id || ''}
+        />
       )}
     </div>
   );
