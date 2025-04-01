@@ -9,6 +9,7 @@ import { MissionDashboard } from "@/components/clientDashboard/MissionDashboard"
 import { FileGallery, FileGalleryHandle } from "@/components/clientDashboard/FileGallery";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { getClientDroneAssignments } from "@/actions/drone";
 
 export function ClientWrapper({ 
   clientId, 
@@ -67,26 +68,31 @@ export function ClientWrapper({
     // If changing navigation, don't lose the clientId!
   }, [currentView, clientId]);
 
+  useEffect(() => {
+    if (clientId) {
+      refreshDroneAssignments();
+    }
+  }, [clientId]); // Only depend on clientId, so it runs once when clientId is available
+
   const handleUploadComplete = () => {
     fileGalleryRef.current?.refresh();
   }
 
   const refreshDroneAssignments = async () => {
     try {
-      console.log("Refreshing drone assignments for client:", clientId);
-      const { getClientDroneAssignments } = await import('@/app/action');
-      const result = await getClientDroneAssignments(clientId);
-      
-      if (result.success) {
-        setDroneAssignments(result.assignments);
-        console.log("Successfully refreshed assignments:", result.assignments);
-      } else {
-        console.error("Error refreshing assignments:", result.error);
-        // Don't redirect or change view on refresh errors
-        toast.error("Could not refresh drone assignments");
+      if (clientId) {
+        const result = await getClientDroneAssignments(clientId);
+        
+        if (result.success) {
+          console.log("Received drone assignments:", result.assignments);
+          setDroneAssignments(result.assignments);
+        } else {
+          console.error("Failed to get drone assignments:", result.error);
+          toast.error("Could not refresh drone assignments");
+        }
       }
     } catch (error) {
-      console.error("Failed to refresh drone assignments:", error);
+      console.error("Error fetching drone assignments:", error);
     }
   };
 

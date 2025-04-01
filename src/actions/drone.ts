@@ -121,6 +121,8 @@ export async function assignPayloadsToDrone(assignmentId: string, payloadIds: nu
 export async function getClientDroneAssignments(clientId: string) {
   'use server';
   
+  console.log("Server function: getClientDroneAssignments for client", clientId);
+  
   try {
     // Check if clientId is valid
     if (!clientId) {
@@ -144,33 +146,55 @@ export async function getClientDroneAssignments(clientId: string) {
       };
     }
     
+    // Get assignments
     const assignments = await db.select().from(ClientDroneAssignment)
       .where(eq(ClientDroneAssignment.clientId, clientId));
     
+    console.log(`Found ${assignments.length} drone assignments for client ${clientId}`);
+    
+    // Add more details to each assignment
     const enrichedAssignments = await Promise.all(assignments.map(async (assignment) => {
-      const [drone] = await db.select().from(Drone)
+      // Get drone details
+      const [drone] = await db.select()
+        .from(Drone)
         .where(eq(Drone.id, assignment.droneId));
       
-      const payloadAssignments = await db.select().from(DronePayloadAssignment)
+      // Get payload assignments
+      const payloadAssignments = await db.select()
+        .from(DronePayloadAssignment)
         .where(eq(DronePayloadAssignment.assignmentId, assignment.id));
       
+      // Get payload details
       const payloads = await Promise.all(payloadAssignments.map(async (pa) => {
-        if (pa.payloadId === null) return null;
-        const [payload] = await db.select().from(Payload)
+        if (!pa.payloadId) return null;
+        const [payload] = await db.select()
+          .from(Payload)
           .where(eq(Payload.id, pa.payloadId));
         return payload;
       }));
       
+      // Filter out null payloads
+      const validPayloads = payloads.filter(p => p !== null);
+      
       return {
         ...assignment,
         drone,
-        payloads
+        payloads: validPayloads
       };
     }));
     
-    return { success: true, assignments: enrichedAssignments };
+    console.log("Enriched assignments:", enrichedAssignments);
+    
+    return { 
+      success: true, 
+      assignments: enrichedAssignments 
+    };
   } catch (error) {
-    console.error('Error fetching client drone assignments:', error);
-    return { success: false, error: String(error), assignments: [] };
+    console.error('Error in getClientDroneAssignments:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error),
+      assignments: [] 
+    };
   }
 }

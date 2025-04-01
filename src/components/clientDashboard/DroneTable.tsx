@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image"; // Added Image import
 import {
   Table,
@@ -68,10 +68,22 @@ const CommandItem = React.forwardRef<
   />
 ));
 
-export function DroneTable({ assignments, payloads, clientId }: { 
+export function DroneTable({ 
+  assignments, 
+  clientId,
+  droneLogoSrc = "/drone.svg",
+  availableDrones = [],
+  availablePayloads = [],
+  loadingOptions = false,
+  onAssignmentComplete
+}: { 
   assignments: any[],
-  payloads?: any[],
-  clientId: string
+  clientId: string,
+  droneLogoSrc?: string,
+  availableDrones?: any[],
+  availablePayloads?: any[],
+  loadingOptions?: boolean,
+  onAssignmentComplete?: () => void
 }) {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [data, setData] = useState<any[]>(assignments);
@@ -82,8 +94,13 @@ export function DroneTable({ assignments, payloads, clientId }: {
   const [droneQuantity, setDroneQuantity] = useState(1);
   const [isAssigning, setIsAssigning] = useState(false);
   
-  const droneLogoSrc = "/drone.svg"; // Default image path
-  
+  const [tableData, setTableData] = useState<any[]>([]);
+
+  useEffect(() => {
+    console.log("DroneTable received assignments:", assignments);
+    setTableData(assignments || []);
+  }, [assignments]);
+
   const toggleRowSelection = (droneId: string) => {
     const newSelected = new Set(selectedRows);
     if (newSelected.has(droneId)) {
@@ -128,12 +145,14 @@ export function DroneTable({ assignments, payloads, clientId }: {
         throw new Error(assignmentResult.error || "Failed to create drone assignment");
       }
 
-      // Get the assignment ID from the result for payload assignment
       const { assignment } = assignmentResult;
 
       setTimeout(() => {
         toast.success("Drone assigned successfully");
         setIsAssigning(false);
+        if (onAssignmentComplete) {
+          onAssignmentComplete();
+        }
       }, 1000);
     } catch (error) {
       toast.error("Failed to assign drone");
@@ -205,14 +224,14 @@ export function DroneTable({ assignments, payloads, clientId }: {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {assignments.length === 0 ? (
+            {tableData.length === 0 ? (
               <TableRow key="empty-row">
                 <TableCell colSpan={6} className="h-24 text-center">
                   No drones assigned
                 </TableCell>
               </TableRow>
             ) : (
-              assignments.map((assignment, index) => (
+              tableData.map((assignment, index) => (
                 <TableRow key={assignment.id || `assignment-row-${index}`}>
                   <TableCell>
                     <Checkbox 
@@ -254,8 +273,8 @@ export function DroneTable({ assignments, payloads, clientId }: {
         </Table>
       </div>
 
-      {(!assignments || assignments.length === 0) && (
-        <div className="bg-background rounded-lg shadow-sm p-8">
+      {tableData.length === 0 && (
+        <div className="bg-background rounded-lg shadow-sm p-8 text-center">
           <div className="max-w-md mx-auto flex flex-col items-center">
             <Image 
               src={droneLogoSrc}
@@ -265,156 +284,9 @@ export function DroneTable({ assignments, payloads, clientId }: {
               className="mb-4"
             />
             <h3 className="text-lg font-medium mb-2">No drones assigned</h3>
-            <p className="text-muted-foreground mb-6">
-              This client doesn't have any drones assigned yet. Assign drones to enable mission planning and monitoring.
+            <p className="text-muted-foreground">
+              This client doesn't have any drones assigned yet. Use the "Add Drone" button above to assign drones.
             </p>
-            
-            <div className="w-full max-w-sm space-y-4 border rounded-md p-4">
-              <h4 className="font-medium">Assign New Drone</h4>
-              
-              <div className="space-y-2">
-                <Label>Drone Model</Label>
-                <Popover open={open} onOpenChange={setOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={open}
-                      className="w-full justify-between"
-                    >
-                      {selectedDrone ? selectedDrone.name : "Select drone model..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder="Search drone models..." />
-                      <CommandEmpty>No drone model found.</CommandEmpty>
-                      <CommandGroup>
-                        {[
-                          { id: 1, name: "Vyom-1" },
-                          { id: 2, name: "Vyom-2" },
-                          { id: 3, name: "Vyom-X Pro" }
-                        ].map((drone) => (
-                          <CommandItem
-                            key={drone.id}
-                            value={drone.name}
-                            onSelect={() => {
-                              setSelectedDrone(drone);
-                              setOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedDrone?.id === drone.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {drone.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Quantity</Label>
-                <Input 
-                  type="number" 
-                  min="1" 
-                  value={droneQuantity} 
-                  onChange={(e) => setDroneQuantity(parseInt(e.target.value) || 1)} 
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Payloads (Optional)</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between"
-                    >
-                      {selectedPayloads.length > 0 
-                        ? `${selectedPayloads.length} selected`
-                        : "Select payloads..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder="Search payloads..." />
-                      <CommandEmpty>No payload found.</CommandEmpty>
-                      <CommandGroup>
-                        {[
-                          { id: 1, name: "Camera" },
-                          { id: 2, name: "Infrared Sensor" },
-                          { id: 3, name: "LiDAR" },
-                          { id: 4, name: "Thermal Imaging" }
-                        ].map((payload) => (
-                          <CommandItem
-                            key={payload.id}
-                            value={payload.name}
-                            onSelect={() => {
-                              setSelectedPayloads(current => 
-                                current.some(p => p.id === payload.id) 
-                                  ? current.filter(p => p.id !== payload.id)
-                                  : [...current, payload]
-                              );
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedPayloads.some(p => p.id === payload.id) ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {payload.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              
-              {selectedPayloads.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {selectedPayloads.map(payload => (
-                    <Badge key={payload.id} variant="secondary">
-                      {payload.name}
-                      <button 
-                        className="ml-1 rounded-full hover:bg-muted" 
-                        onClick={() => setSelectedPayloads(p => p.filter(item => item.id !== payload.id))}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              
-              <Button 
-                className="w-full mt-2"
-                onClick={handleAssignDrone}
-                disabled={isAssigning || !selectedDrone}
-              >
-                {isAssigning ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Assigning...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Assign Drone
-                  </>
-                )}
-              </Button>
-            </div>
           </div>
         </div>
       )}
