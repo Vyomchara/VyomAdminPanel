@@ -198,3 +198,68 @@ export async function getClientDroneAssignments(clientId: string) {
     };
   }
 }
+
+export async function deleteDroneAssignment(assignmentId: string) {
+  'use server';
+  
+  try {
+    console.log(`Deleting drone assignment with ID: ${assignmentId}`);
+    
+    // First delete all payload assignments related to this drone assignment
+    await db.delete(DronePayloadAssignment)
+      .where(eq(DronePayloadAssignment.assignmentId, assignmentId));
+    
+    // Then delete the drone assignment itself
+    await db.delete(ClientDroneAssignment)
+      .where(eq(ClientDroneAssignment.id, assignmentId));
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting drone assignment:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error) 
+    };
+  }
+}
+
+export async function updateDroneAssignment(
+  assignmentId: string, 
+  quantity: number, 
+  payloadIds: number[]
+) {
+  'use server';
+  
+  try {
+    console.log(`Updating drone assignment ID: ${assignmentId}`);
+    console.log(`New quantity: ${quantity}, New payload IDs: ${payloadIds.join(', ')}`);
+    
+    // Update the drone assignment quantity
+    await db.update(ClientDroneAssignment)
+      .set({ quantity })
+      .where(eq(ClientDroneAssignment.id, assignmentId));
+    
+    // First delete all existing payload assignments
+    await db.delete(DronePayloadAssignment)
+      .where(eq(DronePayloadAssignment.assignmentId, assignmentId));
+    
+    // Then add the new payload assignments
+    if (payloadIds.length > 0) {
+      const values = payloadIds.map(payloadId => ({
+        assignmentId,
+        payloadId
+      }));
+      
+      await db.insert(DronePayloadAssignment)
+        .values(values);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating drone assignment:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error) 
+    };
+  }
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image"; // Added Image import
+import Image from "next/image";
 import {
   Table,
   TableBody,
@@ -10,10 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input"; // Added Input import
-import { Label } from "@/components/ui/label"; // Added Label import
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,223 +20,327 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { CircleAlertIcon, TrashIcon, Edit, Trash2, Loader2, Plus } from "lucide-react"; // Added Loader2 and Plus
+import { CircleAlertIcon, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Check, ChevronsUpDown, X } from "lucide-react";
-import {
+import { deleteDroneAssignment, updateDroneAssignment, getAvailablePayloads } from "@/actions/drone";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogDescription
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { 
   Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
+  CommandItem,
 } from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Check, ChevronsUpDown, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import React from "react";
-import { createDroneAssignment } from "@/app/action"; // Added createDroneAssignment import
-
-const CommandItem = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & { 
-    selected?: boolean, 
-    disabled?: boolean, 
-    value?: string,
-    onSelect?: (value: string) => void 
-  }
->(({ className, selected, disabled, value, onSelect, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none select-none",
-      selected && "bg-accent text-accent-foreground",
-      disabled && "pointer-events-none opacity-50",
-      className
-    )}
-    data-selected={selected || undefined}
-    data-disabled={disabled || undefined}
-    onClick={() => onSelect && value && onSelect(value)}
-    {...props}
-  />
-));
 
 export function DroneTable({ 
   assignments, 
   clientId,
   droneLogoSrc = "/drone.svg",
-  availableDrones = [],
-  availablePayloads = [],
-  loadingOptions = false,
   onAssignmentComplete
 }: { 
   assignments: any[],
   clientId: string,
   droneLogoSrc?: string,
-  availableDrones?: any[],
-  availablePayloads?: any[],
-  loadingOptions?: boolean,
   onAssignmentComplete?: () => void
 }) {
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [data, setData] = useState<any[]>(assignments);
-  const [open, setOpen] = useState(false);
-  
-  const [selectedDrone, setSelectedDrone] = useState<any>(null);
-  const [selectedPayloads, setSelectedPayloads] = useState<any[]>([]);
-  const [droneQuantity, setDroneQuantity] = useState(1);
-  const [isAssigning, setIsAssigning] = useState(false);
-  
   const [tableData, setTableData] = useState<any[]>([]);
+  const [droneToUnassign, setDroneToUnassign] = useState<any | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [droneToEdit, setDroneToEdit] = useState<any | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editQuantity, setEditQuantity] = useState(1);
+  const [selectedPayloads, setSelectedPayloads] = useState<any[]>([]);
+  const [availablePayloads, setAvailablePayloads] = useState<any[]>([]);
+  const [loadingPayloads, setLoadingPayloads] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [payloadOpen, setPayloadOpen] = useState(false);
 
   useEffect(() => {
     console.log("DroneTable received assignments:", assignments);
     setTableData(assignments || []);
   }, [assignments]);
-
-  const toggleRowSelection = (droneId: string) => {
-    const newSelected = new Set(selectedRows);
-    if (newSelected.has(droneId)) {
-      newSelected.delete(droneId);
-    } else {
-      newSelected.add(droneId);
-    }
-    setSelectedRows(newSelected);
-  };
   
-  const toggleAllSelection = () => {
-    if (selectedRows.size === data.length) {
-      setSelectedRows(new Set());
-    } else {
-      setSelectedRows(new Set(data.map(drone => drone.id || `no-id-${Math.random()}`)));
-    }
-  };
-  
-  const handleDeleteDrones = () => {
-    const updatedData = data.filter(drone => !selectedRows.has(drone.id || `no-id-${Math.random()}`));
-    setData(updatedData);
-    setSelectedRows(new Set());
+  const handleUnassignDrone = async () => {
+    if (!droneToUnassign) return;
     
-    toast.success(`${selectedRows.size} drone${selectedRows.size > 1 ? 's' : ''} unassigned successfully`);
-  };
-
-  const handleAssignDrone = async () => {
-    if (!selectedDrone) {
-      toast.error("Please select a drone model");
-      return;
-    }
-    
-    setIsAssigning(true);
     try {
-      const assignmentResult = await createDroneAssignment(
-        clientId,
-        selectedDrone.id,
-        droneQuantity
-      );
-
-      if (!assignmentResult.success) {
-        throw new Error(assignmentResult.error || "Failed to create drone assignment");
+      const result = await deleteDroneAssignment(droneToUnassign.id);
+      
+      if (!result.success) {
+        throw new Error(result.error || "Failed to unassign drone");
       }
+      
+      const updatedData = tableData.filter(item => item.id !== droneToUnassign.id);
+      setTableData(updatedData);
+      
+      toast.success(`Drone ${droneToUnassign.drone?.name || "Unknown"} unassigned successfully`);
+    } catch (error: any) {
+      console.error("Error unassigning drone:", error);
+      toast.error(`Failed to unassign drone: ${error.message || "Unknown error"}`);
+    } finally {
+      setDroneToUnassign(null);
+      setShowConfirmDialog(false);
+      
+      if (onAssignmentComplete) {
+        onAssignmentComplete();
+      }
+    }
+  };
 
-      const { assignment } = assignmentResult;
-
-      setTimeout(() => {
-        toast.success("Drone assigned successfully");
-        setIsAssigning(false);
-        if (onAssignmentComplete) {
-          onAssignmentComplete();
+  const handleEditDrone = (assignment: any) => {
+    setDroneToEdit(assignment);
+    setEditQuantity(assignment.quantity || 1);
+    setSelectedPayloads(assignment.payloads || []);
+    setShowEditDialog(true);
+    
+    if (availablePayloads.length === 0) {
+      setLoadingPayloads(true);
+      getAvailablePayloads().then(result => {
+        if (result.success) {
+          setAvailablePayloads(result.payloads);
+        } else {
+          toast.error("Failed to load payloads");
         }
-      }, 1000);
-    } catch (error) {
-      toast.error("Failed to assign drone");
-      setIsAssigning(false);
+        setLoadingPayloads(false);
+      });
+    }
+  };
+
+  const handleUpdateDrone = async () => {
+    if (!droneToEdit) return;
+    
+    setIsUpdating(true);
+    
+    try {
+      const payloadIds = selectedPayloads.map(p => p.id);
+      
+      const result = await updateDroneAssignment(
+        droneToEdit.id,
+        editQuantity,
+        payloadIds
+      );
+      
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update drone assignment");
+      }
+      
+      const updatedData = tableData.map(item => {
+        if (item.id === droneToEdit.id) {
+          return {
+            ...item,
+            quantity: editQuantity,
+            payloads: selectedPayloads
+          };
+        }
+        return item;
+      });
+      
+      setTableData(updatedData);
+      toast.success(`Drone updated successfully`);
+      
+      setShowEditDialog(false);
+      setDroneToEdit(null);
+      
+      if (onAssignmentComplete) {
+        onAssignmentComplete();
+      }
+    } catch (error: any) {
+      console.error("Error updating drone:", error);
+      toast.error(`Failed to update drone: ${error.message || "Unknown error"}`);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
   return (
     <div className="space-y-4">
-      {selectedRows.size > 0 && (
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button className="ml-auto" variant="outline">
-              <TrashIcon
-                className="-ms-1 opacity-60"
-                size={16}
-                aria-hidden="true"
-              />
-              Unassign Drone
-              <span className="bg-background text-muted-foreground/70 -me-1 ml-2 inline-flex h-5 max-h-full items-center rounded border px-1 font-[inherit] text-[0.625rem] font-medium">
-                {selectedRows.size}
-              </span>
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <div className="flex flex-col gap-2 max-sm:items-center sm:flex-row sm:gap-4">
-              <div
-                className="flex size-9 shrink-0 items-center justify-center rounded-full border"
-                aria-hidden="true"
-              >
-                <CircleAlertIcon className="opacity-80" size={16} />
-              </div>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Are you sure you want to unassign?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will unassign {selectedRows.size} selected{" "}
-                  {selectedRows.size === 1 ? "drone" : "drones"} from this client.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <div className="flex flex-col gap-2 max-sm:items-center sm:flex-row sm:gap-4">
+            <div
+              className="flex size-9 shrink-0 items-center justify-center rounded-full border"
+              aria-hidden="true"
+            >
+              <CircleAlertIcon className="opacity-80" size={16} />
             </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteDrones}>
-                Unassign
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Are you sure you want to unassign?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This will unassign the {droneToUnassign?.drone?.name || "selected drone"} from this client.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDroneToUnassign(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnassignDrone}>
+              Unassign
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Drone Assignment</DialogTitle>
+            <DialogDescription>
+              Update drone quantity and payload assignments.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="drone-model">Drone Model</Label>
+              <Input 
+                id="drone-model"
+                value={droneToEdit?.drone?.name || "Unknown Drone"} 
+                disabled
+                className="bg-muted/50"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input 
+                id="quantity"
+                type="number" 
+                min="1"
+                max="100" 
+                value={editQuantity} 
+                onChange={(e) => setEditQuantity(parseInt(e.target.value) || 1)} 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="payloads">Payloads</Label>
+              <Popover open={payloadOpen} onOpenChange={setPayloadOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="payloads"
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between"
+                    disabled={loadingPayloads}
+                  >
+                    {loadingPayloads ? (
+                      <div className="flex items-center">
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Loading...
+                      </div>
+                    ) : selectedPayloads.length > 0 ? (
+                      `${selectedPayloads.length} selected`
+                    ) : (
+                      "Select payloads..."
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Search payloads..." />
+                    <CommandEmpty>No payload found.</CommandEmpty>
+                    <CommandGroup>
+                      {availablePayloads.map((payload) => (
+                        <CommandItem
+                          key={payload.id}
+                          value={payload.name}
+                          onSelect={() => {
+                            setSelectedPayloads(current => 
+                              current.some(p => p.id === payload.id) 
+                                ? current.filter(p => p.id !== payload.id)
+                                : [...current, payload]
+                            );
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedPayloads.some(p => p.id === payload.id) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {payload.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            {selectedPayloads.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {selectedPayloads.map(payload => (
+                  <Badge key={payload.id} variant="secondary">
+                    {payload.name}
+                    <button 
+                      className="ml-1 rounded-full hover:bg-muted" 
+                      onClick={() => setSelectedPayloads(p => p.filter(item => item.id !== payload.id))}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+            
+            <Button 
+              className="w-full mt-4"
+              onClick={handleUpdateDrone}
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Drone"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox 
-                  checked={selectedRows.size > 0}
-                  onCheckedChange={toggleAllSelection}
-                  aria-label="Select all drones"
-                />
-              </TableHead>
               <TableHead className="w-[60px]">S.No</TableHead>
               <TableHead>Drone Model</TableHead>
               <TableHead>Quantity</TableHead>
               <TableHead>Payloads</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right">  </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {tableData.length === 0 ? (
               <TableRow key="empty-row">
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={5} className="h-24 text-center">
                   No drones assigned
                 </TableCell>
               </TableRow>
             ) : (
               tableData.map((assignment, index) => (
                 <TableRow key={assignment.id || `assignment-row-${index}`}>
-                  <TableCell>
-                    <Checkbox 
-                      checked={selectedRows.has(assignment.id)}
-                      onCheckedChange={() => toggleRowSelection(assignment.id)}
-                      aria-label={`Select assignment ${index + 1}`}
-                    />
-                  </TableCell>
                   <TableCell className="text-center">{index + 1}</TableCell>
                   <TableCell className="font-medium">
                     {assignment.drone?.name || "Unknown Drone"}
@@ -247,23 +348,46 @@ export function DroneTable({
                   <TableCell>{assignment.quantity || 1}</TableCell>
                   <TableCell>
                     {assignment.payloads && assignment.payloads.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {assignment.payloads.map((payload: any) => (
-                          <Badge key={payload.id} variant="outline" className="text-xs">
-                            {payload.name}
-                          </Badge>
-                        ))}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap gap-1">
+                          {assignment.payloads.slice(0, 3).map((payload: any) => (
+                            <Badge key={payload.id} variant="outline" className="text-xs">
+                              {payload.name}
+                            </Badge>
+                          ))}
+                        </div>
+                        
+                        {assignment.payloads.length > 3 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {assignment.payloads.slice(3).map((payload: any) => (
+                              <Badge key={payload.id} variant="outline" className="text-xs">
+                                {payload.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">No payloads</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => handleEditDrone(assignment)}
+                    >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4" />
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => {
+                        setDroneToUnassign(assignment);
+                        setShowConfirmDialog(true);
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
                     </Button>
                   </TableCell>
                 </TableRow>

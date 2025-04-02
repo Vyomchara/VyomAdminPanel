@@ -145,13 +145,13 @@ export function MissionFilesTable({
     <div className="rounded-md border">
       <Table>
         <TableCaption>
-          {isLoading ? (
+          {/* {isLoading ? (
             "Loading mission files..."
           ) : files.length === 0 ? (
             "No mission files found. Upload some files to get started."
           ) : (
             `${files.length} mission file${files.length === 1 ? '' : 's'}`
-          )}
+          )} */}
         </TableCaption>
         <TableHeader>
           <TableRow>

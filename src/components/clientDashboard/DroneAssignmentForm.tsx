@@ -140,7 +140,7 @@ export function DroneAssignmentForm({
           <PopoverContent className="w-full p-0">
             <Command>
               <CommandInput placeholder="Search drone models..." />
-              <CommandEmpty>No drone model found.</CommandEmpty>
+              {/* <CommandEmpty>No drone model found.</CommandEmpty> */}
               <CommandGroup>
                 {availableDrones.length === 0 && loadingOptions ? (
                   <div className="p-2 text-center">
@@ -212,7 +212,7 @@ export function DroneAssignmentForm({
           <PopoverContent className="w-full p-0">
             <Command>
               <CommandInput placeholder="Search payloads..." />
-              <CommandEmpty>No payload found.</CommandEmpty>
+              {/* <CommandEmpty>No payload found.</CommandEmpty> */}
               <CommandGroup>
                 {availablePayloads.map((payload) => (
                   <CommandItem

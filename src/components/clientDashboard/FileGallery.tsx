@@ -5,11 +5,26 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
-import { RefreshCw, FileType2, Filter } from "lucide-react"
+import { RefreshCw, FileType2, Filter, Plus, Rocket, FileText, Map } from "lucide-react"
 import { toast } from "sonner"
 import { MissionFilesTable } from "./MissionFilesTable"
 import { listClientFiles } from "@/app/action"
 import { MissionFile } from "@/types/files"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { 
+  MediaUploader, 
+  MediaDropzone, 
+  MediaList, 
+  MediaItem 
+} from "./MediaUploader"
+import { saveFilesToClient } from "@/app/action"
 
 // Define a ref handle type to expose the refresh method
 export interface FileGalleryHandle {
@@ -28,6 +43,8 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [fileType, setFileType] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [uploadFiles, setUploadFiles] = useState<File[] | null>(null)
 
   // Get file extensions from the current files for filter dropdown
   const availableFileTypes = Array.from(new Set(files.map(file => file.extension))).filter(Boolean)
@@ -79,7 +96,9 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
           }
         }));
         
-        setFiles(formattedFiles);
+        // Apply sorting before setting files to state
+        const sortedFiles = sortFiles(formattedFiles, sortBy, sortDirection);
+        setFiles(sortedFiles);
       } else {
         console.error("Error loading files:", response.error);
         setFiles([]);
@@ -143,20 +162,128 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
       return false
     }
   }
+
+  // Function to handle file upload completion
+  const handleUploadComplete = async (urls: string[]) => {
+    toast.success(`Uploaded ${urls.length} mission files`);
+    
+    // Save URLs to database
+    let allSuccess = true;
+    for (const url of urls) {
+      const fileName = url.split('/').pop() || 'unknown';
+      const result = await saveFilesToClient({
+        clientId,
+        url,
+        bucketName: 'mission',
+        fileName
+      });
+      
+      if (!result.success) {
+        toast.error(`Failed to save file record: ${result.error}`);
+        allSuccess = false;
+        break;
+      }
+    }
+    
+    if (allSuccess) {
+      toast.success("All file records saved successfully");
+      // Close dialog and refresh file list
+      setUploadDialogOpen(false);
+      await loadFiles();
+    }
+  };
   
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold">
+        <h2 className="text-xl font-bold flex items-center">
+          <Rocket className="h-5 w-5 mr-2 text-primary" />
           Mission Files
-          <span className="ml-2 text-sm font-normal text-muted-foreground">
+          {/* <span className="ml-2 text-sm font-normal text-muted-foreground">
             (mission bucket)
-          </span>
+          </span> */}
         </h2>
-        <Button variant="outline" size="sm" onClick={loadFiles}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex space-x-2">
+          {/* Add Mission File button */}
+          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="default" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Mission Files
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Upload Mission Files</DialogTitle>
+                <DialogDescription>
+                  Upload mission files for this client. Supported formats: JSON, XML, TXT, ZIP.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="py-4">
+                <MediaUploader
+                  value={uploadFiles}
+                  onValueChange={setUploadFiles}
+                  dropzoneOptions={{
+                    maxFiles: 5,
+                    maxSize: 10 * 1024 * 1024, // 10MB
+                    accept: {
+                      'application/json': ['.json'],
+                      'application/xml': ['.xml'],
+                      'text/plain': ['.txt'],
+                      'application/zip': ['.zip'],
+                    }
+                  }}
+                  fileType="mission"
+                  clientId={clientId}
+                  onUploadComplete={handleUploadComplete}
+                  buttonText="Upload Mission Files"
+                >
+                  <MediaDropzone>
+                    <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50 dark:hover:bg-gray-800/70 hover:bg-gray-100 transition-colors">
+                      <svg
+                        className="w-10 h-10 text-gray-400 dark:text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        ></path>
+                      </svg>
+                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                        Drag and drop mission files, or click to select
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        JSON, XML, TXT, ZIP (max 10MB)
+                      </p>
+                    </div>
+                  </MediaDropzone>
+                  
+                  {uploadFiles && uploadFiles.length > 0 && (
+                    <MediaList className="mt-4">
+                      {uploadFiles.map((file, i) => (
+                        <MediaItem key={i} index={i} showPreview={false}>
+                          {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                        </MediaItem>
+                      ))}
+                    </MediaList>
+                  )}
+                </MediaUploader>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          {/* Existing refresh button */}
+          <Button variant="outline" size="sm" onClick={loadFiles}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
       
       <Card className="p-6">

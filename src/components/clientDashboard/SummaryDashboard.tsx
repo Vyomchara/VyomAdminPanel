@@ -19,6 +19,7 @@ import {
 } from "@/app/action";
 import { DroneTable } from "./DroneTable";
 import { DroneAssignmentForm } from "./DroneAssignmentForm"; // We'll create this component
+import Image from "next/image";
 
 export function SummaryDashboard({ 
   client, 
@@ -79,7 +80,16 @@ export function SummaryDashboard({
     <div className="space-y-6">
       {/* Header with Add Drone button */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold">Drone Assignments</h2>
+        <h2 className="text-2xl font-semibold flex items-center">
+          <Image 
+            src={droneLogoSrc} 
+            alt="Drone" 
+            width={24} 
+            height={24} 
+            className="mr-2 mb-[-8px]" 
+          />
+          Drone Assignments
+        </h2>
         
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -115,8 +125,8 @@ export function SummaryDashboard({
           assignments={droneAssignments || []} 
           clientId={client?.id || ''}
           droneLogoSrc={droneLogoSrc}
-          availableDrones={[]} // Don't need these in the table anymore
-          availablePayloads={[]} // Don't need these in the table anymore
+         // availableDrones={[]} // Don't need these in the table anymore
+         // availablePayloads={[]} // Don't need these in the table anymore
           onAssignmentComplete={onAssignmentChange}
         />
       </div>
