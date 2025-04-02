@@ -73,7 +73,7 @@ export function DroneTable({
   const [payloadOpen, setPayloadOpen] = useState(false);
 
   useEffect(() => {
-    console.log("DroneTable received assignments:", assignments);
+    //console.log("DroneTable received assignments:", assignments);
     setTableData(assignments || []);
   }, [assignments]);
   

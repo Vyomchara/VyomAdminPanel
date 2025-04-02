@@ -18,7 +18,7 @@ export function ClientWrapper({
   clientId: string;
   initialDroneAssignments: any[];
 }) {
-  console.log("ClientWrapper rendered with clientId:", clientId);
+ // console.log("ClientWrapper rendered with clientId:", clientId);
 
   const fileGalleryRef = useRef<FileGalleryHandle>(null);
   const [droneAssignments, setDroneAssignments] = useState(initialDroneAssignments);
@@ -38,7 +38,7 @@ export function ClientWrapper({
   });
 
   useEffect(() => {
-    console.log("ClientWrapper received clientId:", clientId);
+   // console.log("ClientWrapper received clientId:", clientId);
     
     if (!clientId) {
       console.error("ClientWrapper: Missing client ID");
@@ -62,8 +62,8 @@ export function ClientWrapper({
   }, [loading, error, client, router, isInitialLoad]);
 
   useEffect(() => {
-    console.log("View changed to:", currentView);
-    console.log("Using clientId:", clientId);
+    //console.log("View changed to:", currentView);
+   // console.log("Using clientId:", clientId);
     
     // If changing navigation, don't lose the clientId!
   }, [currentView, clientId]);
@@ -73,6 +73,18 @@ export function ClientWrapper({
       refreshDroneAssignments();
     }
   }, [clientId]); // Only depend on clientId, so it runs once when clientId is available
+
+  useEffect(() => {
+    // Only check and potentially update the view when client data is first loaded
+    if (!loading && client && isInitialLoad) {
+      // Check if VM IP is not configured
+      if (!client.vm_ip) {
+        // Redirect to config tab instead of summary
+        setCurrentView('config');
+      }
+      setIsInitialLoad(false);
+    }
+  }, [loading, client, isInitialLoad, setCurrentView]);
 
   const handleUploadComplete = () => {
     fileGalleryRef.current?.refresh();
@@ -84,7 +96,7 @@ export function ClientWrapper({
         const result = await getClientDroneAssignments(clientId);
         
         if (result.success) {
-          console.log("Received drone assignments:", result.assignments);
+          //console.log("Received drone assignments:", result.assignments);
           setDroneAssignments(result.assignments);
         } else {
           console.error("Failed to get drone assignments:", result.error);

@@ -117,9 +117,9 @@ export function Configuration({
         // Since vm_password isn't implemented yet, don't try to access it
         // Instead, we'll use the password from the form submission
         // This avoids the TypeScript error while maintaining functionality
-        console.log("before VM password from server:", result.data.vm_password)
+      //  console.log("before VM password from server:", result.data.vm_password)
         setVmPassword(result.data.vm_password || null)
-        console.log("after VM password from server:", result.data.vm_password)
+      //  console.log("after VM password from server:", result.data.vm_password)
       }
     } catch (error) {
       console.error('Error refreshing client data:', error)

@@ -64,7 +64,7 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
 
   // Enhanced loadFiles function with better error handling
   const loadFiles = async () => {
-    console.log("FileGallery loadFiles called with clientId:", clientId);
+    //console.log("FileGallery loadFiles called with clientId:", clientId);
     setIsLoading(true);
     
     if (!clientId) {
@@ -76,9 +76,9 @@ function FileGalleryComponent({ clientId }: FileGalleryProps, ref: React.Forward
     }
     
     try {
-      console.log("Calling listClientFiles with clientId:", clientId);
+     // console.log("Calling listClientFiles with clientId:", clientId);
       const response = await listClientFiles(clientId);
-      console.log("listClientFiles response:", response);
+      // console.log("listClientFiles response:", response);
       
       if (response.success && response.files) {
         // Convert the response files to match the MissionFile type

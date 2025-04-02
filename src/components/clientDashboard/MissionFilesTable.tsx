@@ -114,12 +114,12 @@ export function MissionFilesTable({
       setDeletingFile(file.path)
       
       // Log detailed file information to help diagnose issues
-      console.log("Deleting file:", {
-        name: file.name,
-        path: file.path,
-        bucket: file.bucketName,
-        fullDetails: file
-      })
+    //   console.log("Deleting file:", {
+    //     name: file.name,
+    //     path: file.path,
+    //     bucket: file.bucketName,
+    //     fullDetails: file
+    //   })
       
       const success = await onDeleteFile(file)
       
