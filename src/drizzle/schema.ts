@@ -9,7 +9,8 @@ export const Client = pgTable("client", {
     email: text('email').notNull().unique(),
     address: text('address').notNull(),
     created_at: timestamp('created_at').notNull().defaultNow(),
-    vm_ip: text('vm_ip'),
+    vm_ip: text('vm_ip'), // Keep vm_ip
+    vm_password:text('vm_password')  //vm_password field
 })
 
 export const Drone = pgTable("drone",{
@@ -32,6 +33,7 @@ export const ClientDroneAssignment = pgTable("client_drone_assignment",{
 export const DronePayloadAssignment = pgTable("drone_payload_assignment",{
     id: uuid('id').defaultRandom().primaryKey(),
     assignmentId: uuid('assignment_id').references(()=>ClientDroneAssignment.id),
+    //assignmentId: uuid('assignment_id').notNull().references(() => ClientDroneAssignment.id, { onDelete: "no action", onUpdate: "no action" }),
     payloadId: integer('payload_id').references(()=>Payload.id)
 })
 
@@ -40,7 +42,9 @@ export const clientCreateSchema = createInsertSchema(Client,{
     name: z.string().nonempty(),
     email: z.string().nonempty().email(),
     address: z.string().nonempty().max(200),
-    vm_ip: z.string().ip({version:"v4"}).optional()
+    vm_ip: z.string().ip({version:"v4"}).optional(),
+    vm_password:z.string().optional() // Keep vm_ip validation
+    // Remove vm_password validation
 })
 export const clientUpdateSchema = createUpdateSchema(Client)
 export const clientSelectSchema = createSelectSchema(Client)
@@ -60,3 +64,7 @@ export type droneAssignmentInsert = z.infer<typeof droneAssignmentUpdateSchema>
 export type payloadAssignmentSelect = z.infer<typeof payloadAssignmentSelectSchema>
 export type payloadAssignmentUpdate = z.infer<typeof payloadAssignmentUpdateSchema>
 export type payloadAssignmentInsert = z.infer<typeof payloadAssignmentInsertSchema>
+
+export type DroneSelect = typeof Drone.$inferSelect;
+export type PayloadSelect = typeof Payload.$inferSelect;
+export type ClientDroneAssignmentSelect = typeof ClientDroneAssignment.$inferSelect;

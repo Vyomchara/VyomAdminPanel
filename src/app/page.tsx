@@ -1,12 +1,16 @@
 import { useState, useEffect } from "react";
-import Image from "next/image";
+
+import Images from "next/image";
+
 import { AddClientDialog } from "@/components/dashboard/addClient";
 import { clientSelect } from "@/drizzle/schema";
 import { ClientService } from "@/services/client";
 import { ModeToggle } from "@/components/ui/ModeToggle";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
-import { Table } from "@/components/dashboard/Table"; // Update import to use named import
+
+import { Table } from "@/components/dashboard/table"; // Corrected casing to match actual file
+
 
 const serviceMethods = new ClientService();
 
