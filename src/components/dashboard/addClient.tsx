@@ -16,6 +16,7 @@ import { useState } from "react";
 import { ClientService } from "@/services/client";
 import { clientCreateAction } from "@/app/action";
 
+
 import { toast } from "sonner";
 
 interface AddClientDialogProps {
@@ -35,6 +36,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
     e.preventDefault();
     try {
       setIsLoading(true);
+
       const result = await clientCreateAction(formData);
       
       if (!result.success) {
@@ -51,8 +53,10 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
     } catch (error) {
       toast.error("Failed to add client");
       console.error("Error creating client:", error);
+
     } finally {
       setIsLoading(false);
+
     }
   };
 
@@ -110,6 +114,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
             </div>
           </div>
           <DialogFooter>
+
             <Button type="submit" disabled={isLoading}>
               {isLoading ? (
                 <>
@@ -120,6 +125,7 @@ export function AddClientDialog({ children }: AddClientDialogProps) {
                 'Add Client'
               )}
             </Button>
+
           </DialogFooter>
         </form>
       </DialogContent>

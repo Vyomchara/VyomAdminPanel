@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+
   Table as TableComponent,
   TableBody,
   TableCell,
@@ -45,6 +46,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import {
+
   CircleAlertIcon,
   CircleXIcon,
   EllipsisIcon,
@@ -55,10 +57,12 @@ import {
   MoveUpRight,
   ChevronDown,
   ChevronUp
+
 } from "lucide-react";
 import { clientSelect } from "@/drizzle/schema";
 import { AddClientDialog } from "@/components/dashboard/addClient";
 import { useEffect, useState, useRef } from "react";
+
 import { useId as useReactId } from "react";
 import Link from "next/link";
 
@@ -77,6 +81,7 @@ const truncateText = (text: string, limit: number = 60) => {
   if (text.length <= limit) return text;
   return `${text.slice(0, limit)}...`;
 };
+
 
 // Replace the checkbox column with an S.No. column
 const columns: ColumnDef<Item>[] = [
@@ -140,6 +145,7 @@ const columns: ColumnDef<Item>[] = [
   },
 ];
 
+
 interface TableProps {
   clients: clientSelect[];
 }
@@ -147,6 +153,7 @@ interface TableProps {
 export function Table({ clients }: TableProps) {
   const id = useId();
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+
   const [showAll, setShowAll] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -162,7 +169,7 @@ export function Table({ clients }: TableProps) {
   const table = useReactTable({
     data,
     columns,
-    getCoreRowModel: getCoreRowModel(),
+    getCoreRowModel: getCoreRowModel
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
@@ -215,7 +222,6 @@ export function Table({ clients }: TableProps) {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* Add client button - Keep only this button */}
           <AddClientDialog>
             <Button className="ml-auto" variant="outline">
               <PlusIcon
@@ -288,6 +294,7 @@ export function Table({ clients }: TableProps) {
         </TableComponent>
       </div>
 
+
       {/* Replace the entire Pagination section with this */}
       <div className="flex items-center justify-end gap-8">
         <Button
@@ -312,5 +319,7 @@ export function Table({ clients }: TableProps) {
   );
 }
 function useId() {
+
   return useReactId();
 }
+
