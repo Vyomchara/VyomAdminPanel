@@ -169,7 +169,7 @@ export function Table({ clients }: TableProps) {
   const table = useReactTable({
     data,
     columns,
-    getCoreRowModel: getCoreRowModel
+    getCoreRowModel: getCoreRowModel(), // Added missing comma and parentheses
     onColumnFiltersChange: setColumnFilters,
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
